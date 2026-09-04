@@ -58,7 +58,7 @@ eigenen Kontos beitritt (siehe "Bekannte Einschränkungen").
 ```bash
 mkdir cuelight && cd cuelight
 curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/docker-compose.yml
-mkdir -p data && sudo chown -R 1000:1000 data
+mkdir -p data
 nano docker-compose.yml   # Zugangsdaten aus Schritt 1 eintragen
 docker compose up -d
 ```

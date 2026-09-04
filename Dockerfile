@@ -12,12 +12,19 @@ RUN npm install --omit=dev
 COPY server.js ./
 COPY public ./public
 
-# Läuft standardmäßig nicht als root. node:20-alpine bringt bereits einen
-# fertigen User "node" mit fester UID/GID 1000 mit - den nutzen wir direkt,
-# statt einen eigenen anzulegen (der würde mit UID 1000 kollidieren).
-# Host-Verzeichnisse für Bind-Mounts entsprechend auf 1000:1000 chownen.
-RUN mkdir -p /app/data && chown node:node /app/data
-USER node
+# su-exec: winziges Tool, um beim Containerstart kontrolliert von root zu
+# einem unprivilegierten User zu wechseln (siehe entrypoint.sh).
+RUN apk add --no-cache su-exec
+
+RUN mkdir -p /app/data
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Bewusst KEIN "USER node" hier: der Container startet als root, damit das
+# Entrypoint-Skript die Rechte des gemounteten Datenverzeichnisses selbst
+# korrigieren kann, egal welche Rechte es auf dem Host mitbringt - dann
+# wechselt es sofort zum unprivilegierten node-User, bevor die App startet.
+ENTRYPOINT ["/entrypoint.sh"]
 
 EXPOSE 4000
 

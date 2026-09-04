@@ -15,8 +15,8 @@ services:
       APP_BASE_URL: "https://deine-domain.de"
       PORT: "4000"
     volumes:
-      # Verzeichnis muss vorher existieren und dem Container-User (UID/GID
-      # 1000) gehören: mkdir -p ./data && chown -R 1000:1000 ./data
+      # Container regelt die Zugriffsrechte hierfür selbst beim Start -
+      # kein manuelles chown auf dem Host nötig.
       - ./data:/app/data
     ports:
       - "4000:4000"
