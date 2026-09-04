@@ -1,0 +1,12 @@
+node_modules/
+*.zip
+.DS_Store
+
+# OAuth-Token der Bühne - enthält ein gültiges Zugriffstoken, darf nie
+# ins Repo. Landet im Betrieb ohnehin nur im gebindeten Host-Verzeichnis
+# (siehe README), diese Zeile ist nur eine Sicherung falls mal jemand
+# lokal ohne Docker testet.
+zoom-oauth-tokens.json
+
+.env
+.env.*

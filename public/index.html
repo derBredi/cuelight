@@ -1,0 +1,983 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>CueLight</title>
+
+<!-- PWA: Homescreen-Icon, Vollbild-Modus ohne Safari-Leiste -->
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="apple-touch-icon" href="/icons/icon-180.png" />
+<meta name="theme-color" content="#1c1c2e" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="CueLight" />
+
+<style>
+  :root {
+    --bg: #1c1c2e;
+    --panel: #26263c;
+    --line: #38384f;
+    --text: #f2f3f5;
+    --muted: #8f8fa8;
+    --zoom-blue: #2d8cff;
+    --zoom-blue-dark: #1a6fe0;
+    --flag: #f26d21;
+    --flag-flash: #ffb066;
+    --flag-dark: #c9551a;
+    --flag-text: #200d00;
+    --flag-glow: rgba(242, 109, 33, 0.75);
+    --speak: #22c55e;
+    --speak-flash: #7ce3a0;
+    --speak-dark: #17a34a;
+    --speak-text: #062012;
+    --speak-glow: rgba(34, 197, 94, 0.75);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    overflow: hidden;
+  }
+
+  /* Zooms Client-View-API rendert ihre komplette Meeting-Oberfläche in ein
+     eigenes Element #zmmtg-root direkt in den body - das wollen wir
+     unsichtbar halten, wir brauchen nur die Teilnehmer-Daten, nicht das UI. */
+  #zmmtg-root {
+    display: none !important;
+  }
+
+  /* Ungenutzt bei der Client-View-API, bleibt zur Sicherheit trotzdem
+     unsichtbar falls das SDK doch mal reinrendert. */
+  #meetingSDKElement {
+    position: fixed;
+    width: 1px;
+    height: 1px;
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  #setup {
+    max-width: 420px;
+    margin: 8vh auto;
+    padding: 32px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+  }
+
+  #setup h1 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0 0 20px;
+  }
+
+  #setup label {
+    display: block;
+    font-size: 13px;
+    color: var(--muted);
+    margin: 16px 0 6px;
+  }
+
+  #setup input {
+    width: 100%;
+    padding: 10px 12px;
+    background: #000;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 15px;
+  }
+
+  #setup button {
+    margin-top: 24px;
+    width: 100%;
+    padding: 12px;
+    background: var(--zoom-blue);
+    color: #ffffff;
+    border: none;
+    border-radius: 3px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  #copyLinkBtn {
+    margin-top: 10px;
+    background: transparent;
+    color: var(--zoom-blue);
+    border: 1px solid var(--line);
+    font-weight: 500;
+  }
+
+  #setup .hint {
+    margin-top: 14px;
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  #board {
+    display: none;
+    position: fixed;
+    inset: 0;
+    padding: 4vh 5vw;
+    background: var(--bg);
+    z-index: 999999;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #board.active { display: block; }
+
+  #counter {
+    text-align: center;
+    margin-bottom: 1.5vh;
+    color: var(--muted);
+    font-size: clamp(13px, 1.4vw, 16px);
+    letter-spacing: 0.02em;
+  }
+
+  /* Warnung bei Verbindungsproblemen: bewusst nicht zu uebersehen, da eine
+     stillstehende Anzeige sonst mit "niemand meldet sich" verwechselt
+     werden kann - genau der gefaehrliche Fall auf der Buehne. */
+  #connectionBanner {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    display: none;
+    text-align: center;
+    padding: 1.2vh 3vw;
+    margin-bottom: 1.5vh;
+    background: #dc2626;
+    color: #ffffff;
+    font-weight: 700;
+    font-size: clamp(14px, 1.6vw, 18px);
+    border-radius: 6px;
+    animation: connectionPulse 1s ease-in-out infinite;
+  }
+
+  @keyframes connectionPulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
+
+  /* Dezenter Bedienhinweis fuer seltene Nutzer, blendet sich von selbst
+     wieder aus (siehe hintTimer in JS) - kein Klick noetig, damit er bei
+     haeufiger Nutzung nicht nervt. */
+  #hintBanner {
+    text-align: center;
+    margin-bottom: 1.5vh;
+    padding: 1.2vh 3vw;
+    background: var(--zoom-blue);
+    border: none;
+    border-radius: 6px;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: clamp(14px, 1.6vw, 18px);
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+  }
+
+  #hintBanner.visible {
+    opacity: 1;
+  }
+
+  #lowerAllBtn {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: block;
+    margin: 0 auto 2vh;
+    padding: 1.6vh 4vw;
+    background: var(--zoom-blue);
+    color: #ffffff;
+    border: none;
+    border-radius: 999px;
+    font-size: clamp(15px, 1.8vw, 19px);
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #lowerAllBtn:active {
+    filter: brightness(0.9);
+  }
+
+  /* Dezent unten fixiert, immer erreichbar unabhaengig vom Scroll-Stand
+     der Liste. Bewusst unauffaellig (kein Signalfarbe) - ist eine seltene,
+     ueberlegte Aktion, keine, zu der man staendig hingezogen werden soll. */
+  #leaveBtn {
+    position: fixed;
+    left: 50%;
+    bottom: 2vh;
+    transform: translateX(-50%);
+    z-index: 30;
+    padding: 1vh 4vw;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: clamp(12px, 1.3vw, 15px);
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #leaveBtn:active {
+    filter: brightness(0.85);
+  }
+
+  #empty-state {
+    height: 80vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: clamp(18px, 2.2vw, 28px);
+    letter-spacing: 0.02em;
+  }
+
+  /* Top-ausgerichtet statt zentriert: bei vielen Meldungen scrollt man von
+     oben nach unten durch eine feste Reihenfolge - vorhersehbarer fuers
+     Touch-Scrollen als eine vertikal zentrierte Liste, die nach beiden
+     Seiten waechst. Kacheln behalten dabei immer ihre volle Groesse. */
+  #list {
+    display: flex;
+    flex-direction: column;
+    gap: 3vh;
+    padding-bottom: 9vh;
+  }
+
+  /* Die Kachel ist bewusst eine kräftig gefüllte Fläche statt nur ein
+     Rahmen: eine große, satte Farbfläche ist aus dem Augenwinkel deutlich
+     schneller erkennbar als ein dünner Akzentrand auf dunklem/hellem Grund.
+     Sie ist ausserdem der Freischalt-Button: grosszuegige Trefferflaeche,
+     keine Textauswahl/Blau-Markierung beim Tippen, dezentes Press-Feedback. */
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 3vw;
+    padding: 2.2vh 3vw;
+    background: var(--flag);
+    border: 1px solid var(--flag-dark);
+    border-radius: 6px;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    animation: pulse 1.1s ease-in-out infinite;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .row:active {
+    filter: brightness(0.92);
+  }
+
+  /* Mikro ist offen -> gleich wird gesprochen. Biegt die im Rest der
+     Kachel verwendeten Custom Properties lokal auf Gruen um, die
+     bestehende Puls-Animation (siehe @keyframes pulse) uebernimmt das
+     automatisch, weil sie nur var(--flag...) referenziert. */
+  .row.unmuted {
+    --flag: var(--speak);
+    --flag-flash: var(--speak-flash);
+    --flag-dark: var(--speak-dark);
+    --flag-text: var(--speak-text);
+    --flag-glow: var(--speak-glow);
+    animation: none;
+    background: var(--speak);
+    border-color: var(--speak-dark);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 30px 4px var(--speak-glow);
+    transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+  }
+
+  /* War schon mal frei geschaltet, ist aber wieder stumm und hat die Hand
+     noch nicht gesenkt - soll nicht mehr um Aufmerksamkeit buhlen wie eine
+     frische Meldung. Hintergrund bewusst Richtung Seitenhintergrund
+     verschoben (nicht nur transparent gemacht) - dadurch tritt die Kachel
+     sichtbar zurueck, ohne komplett zu verschwinden. */
+  .row.done {
+    animation: none;
+    box-shadow: none;
+    background: var(--panel);
+    border-color: var(--line);
+  }
+  .row.done .name,
+  .row.done .wait,
+  .row.done .mic {
+    color: var(--muted);
+  }
+
+  /* Weiches Ausblenden statt hartem Verschwinden, sobald die Hand gesenkt
+     wird (siehe scheduleLeave in JS). Neue Kacheln erscheinen bewusst
+     weiterhin hart/sofort - das plötzliche Auftauchen ist Teil des
+     Aufmerksamkeits-Effekts, nur das Verschwinden soll ruhiger wirken. */
+  .row {
+    transition: opacity 0.4s ease, transform 0.4s ease;
+  }
+  .row.leaving {
+    animation: none !important;
+    opacity: 0;
+    transform: scale(0.94);
+    pointer-events: none;
+  }
+
+  .row .mic {
+    width: clamp(36px, 5vw, 60px);
+    height: clamp(36px, 5vw, 60px);
+    color: var(--flag-text);
+    flex-shrink: 0;
+  }
+
+  .row .name {
+    font-size: clamp(28px, 5.5vw, 64px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--flag-text);
+  }
+
+  .row .wait {
+    margin-left: auto;
+    font-size: clamp(14px, 1.4vw, 18px);
+    color: rgba(36, 26, 0, 0.65);
+    white-space: nowrap;
+  }
+
+  /* Pulsiert per Leuchten, leichter Skalierung UND echtem Farbwechsel -
+     Bewegung und Helligkeitswechsel fallen im Augenwinkel am stärksten auf.
+     Tempo bewusst bei ca. 0.9 Wechseln/Sekunde gehalten (< 3 Hz), damit das
+     Blinken nicht unangenehm oder problematisch schnell wird. */
+  @keyframes pulse {
+    0%, 100% {
+      background: var(--flag);
+      border-color: var(--flag-dark);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 0 0 var(--flag-glow);
+      transform: scale(1);
+    }
+    50% {
+      background: var(--flag-flash);
+      border-color: var(--flag);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 55px 12px var(--flag-glow);
+      transform: scale(1.02);
+    }
+  }
+
+  #debug {
+    position: fixed;
+    bottom: 8px;
+    left: 8px;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+  }
+</style>
+</head>
+<body>
+
+  <div id="setup">
+    <h1>CueLight einrichten</h1>
+    <label for="meetingNumber">Meeting-Nummer</label>
+    <input id="meetingNumber" placeholder="123 4567 8901" inputmode="numeric" />
+
+    <label for="password">Passwort (falls vorhanden)</label>
+    <input id="password" placeholder="leer lassen wenn keins" />
+
+    <label for="serverUrl">Signature-Server-URL</label>
+    <input id="serverUrl" value="" />
+
+    <button id="joinBtn">CueLight starten</button>
+
+    <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
+    <input id="bookmarkLink" readonly />
+    <button id="copyLinkBtn" type="button">Link kopieren</button>
+  </div>
+
+  <div id="board">
+    <div id="connectionBanner" style="display:none;"></div>
+    <div id="hintBanner">💡 Auf eine Kachel tippen schaltet die Person frei</div>
+    <div id="counter"></div>
+    <button id="lowerAllBtn" style="display:none;">Alle Hände herunternehmen</button>
+    <div id="empty-state">Aktuell meldet sich niemand</div>
+    <div id="list" style="display:none;"></div>
+    <button id="leaveBtn">Meeting verlassen</button>
+  </div>
+
+  <div id="debug"></div>
+
+  <!-- Zoom Meeting SDK (Component View) -->
+  <!-- Reihenfolge wichtig: Vendor-Libs zuerst, das Haupt-Bundle erwartet
+       React/Redux/Lodash bereits als globale Variablen. -->
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/react-dom.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js"></script>
+  <script src="https://source.zoom.us/6.2.0/zoom-meeting-6.2.0.min.js"></script>
+  <div id="meetingSDKElement"></div>
+
+  <script>
+    // ---------------------------------------------------------------
+    // Konfiguration
+    // ---------------------------------------------------------------
+    const raisedHands = new Map(); // participantId -> { name, since }
+    let totalAttendees = 0;
+    let isHostOrCoHost = false;
+
+    const boardEl = document.getElementById('board');
+    const listEl = document.getElementById('list');
+    const emptyEl = document.getElementById('empty-state');
+    const debugEl = document.getElementById('debug');
+    const setupEl = document.getElementById('setup');
+    const lowerAllBtn = document.getElementById('lowerAllBtn');
+    const leaveBtn = document.getElementById('leaveBtn');
+    const counterEl = document.getElementById('counter');
+    const connectionBannerEl = document.getElementById('connectionBanner');
+    const hintBannerEl = document.getElementById('hintBanner');
+
+    function log(...args) {
+      console.log('[CueLight]', ...args);
+    }
+
+    // ---------------------------------------------------------------
+    // Rendering
+    // ---------------------------------------------------------------
+    // Standard-Mikrofon-Icons (Kapsel + Standfuss, bei stumm mit
+    // durchgestrichener Linie) - der branchenuebliche Look, den auch Zoom,
+    // Teams & Co. verwenden, als eigenes, freies SVG nachgebaut.
+    const MIC_ON_SVG = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/>
+        <path d="M19 10v1a7 7 0 0 1-14 0v-1"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>`;
+    const MIC_OFF_SVG = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12"/>
+        <path d="M15 9.34V5a3 3 0 0 0-5.94-.6"/>
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2"/>
+        <path d="M19 12v-2"/>
+        <line x1="12" y1="19" x2="12" y2="23"/>
+        <line x1="8" y1="23" x2="16" y2="23"/>
+      </svg>`;
+
+    const rowElements = new Map(); // participantId -> DOM-Element der Kachel
+
+    function render() {
+      const activeEntries = [...raisedHands.entries()]
+        .filter(([, info]) => !info.leaving)
+        .sort((a, b) => {
+          // Reihenfolge: offenes Mikro (spricht gleich) zuerst, dann neue
+          // Meldungen, dann bereits drangewesene (ruhige) Meldungen zuletzt.
+          // Innerhalb einer Gruppe: laengste Meldung zuerst.
+          const priority = (info) => (!info.muted ? 0 : info.hasSpoken ? 2 : 1);
+          const prioDiff = priority(a[1]) - priority(b[1]);
+          if (prioDiff !== 0) return prioDiff;
+          return a[1].since - b[1].since;
+        });
+
+      counterEl.textContent = `${totalAttendees} im Meeting · ${activeEntries.length} Meldung${activeEntries.length === 1 ? '' : 'en'}`;
+
+      // raisedHands.size (nicht activeEntries.length!) entscheidet ueber
+      // Leer-Zustand, damit eine gerade ausblendende Kachel ihre Animation
+      // fertig spielen kann, bevor auf "niemand meldet sich" umgeschaltet wird.
+      if (raisedHands.size === 0) {
+        emptyEl.style.display = 'flex';
+        listEl.style.display = 'none';
+        lowerAllBtn.style.display = 'none';
+        return;
+      }
+
+      emptyEl.style.display = 'none';
+      listEl.style.display = 'flex';
+      lowerAllBtn.style.display = activeEntries.length > 0 ? 'block' : 'none';
+      if (activeEntries.length > 0) maybeShowHint();
+
+      activeEntries.forEach(([id, info]) => {
+        let el = rowElements.get(id);
+        if (!el) {
+          el = buildRowElement();
+          rowElements.set(id, el);
+          listEl.appendChild(el); // hart einblenden: sofort volle Deckkraft, keine Animation
+        }
+        updateRowElement(el, info);
+        listEl.appendChild(el); // an die (sortierte) Position ans Ende verschieben
+      });
+      // Ausblendende Kacheln bleiben bewusst unangetastet an ihrer aktuellen
+      // Position liegen (siehe scheduleLeave) - werden erst nach Ablauf der
+      // CSS-Transition entfernt.
+    }
+
+    function buildRowElement() {
+      const div = document.createElement('div');
+      div.className = 'row';
+      div.innerHTML = `
+        <div class="mic"></div>
+        <div class="name"></div>
+        <div class="wait"></div>
+      `;
+      return div;
+    }
+
+    function updateRowElement(el, info) {
+      const seconds = Math.max(0, Math.round((Date.now() - info.since) / 1000));
+      el.querySelector('.mic').innerHTML = info.muted ? MIC_OFF_SVG : MIC_ON_SVG;
+      el.querySelector('.name').textContent = info.name;
+      el.querySelector('.wait').textContent = `seit ${seconds}s`;
+      if (typeof info.userId === 'number') {
+        el.dataset.userId = info.userId;
+      } else {
+        delete el.dataset.userId;
+      }
+      el.classList.toggle('unmuted', !info.muted);
+      // "done": war schon mal frei geschaltet, ist aber wieder stumm und hat
+      // die Hand noch nicht gesenkt - soll nicht mehr blinkend um
+      // Aufmerksamkeit buhlen wie eine frische Meldung.
+      el.classList.toggle('done', info.muted && Boolean(info.hasSpoken));
+    }
+
+    // Faehrt eine Kachel weich aus, statt sie hart zu entfernen. Wird
+    // aufgerufen, sobald jemand die Hand senkt / das Meeting verlaesst.
+    function scheduleLeave(id) {
+      const info = raisedHands.get(id);
+      if (!info || info.leaving) return;
+      info.leaving = true;
+      const el = rowElements.get(id);
+      if (!el) {
+        raisedHands.delete(id);
+        return;
+      }
+      // Klasse erst im naechsten Frame setzen, nicht im selben Tick wie das
+      // Markieren als "leaving" - sonst hat der Browser keinen Vorher-Zustand
+      // zum Uebergang von animieren (die Transition wuerde nicht sichtbar).
+      requestAnimationFrame(() => el.classList.add('leaving'));
+      setTimeout(() => {
+        el.remove();
+        rowElements.delete(id);
+        raisedHands.delete(id);
+        render();
+      }, 450);
+    }
+
+    // Ganze Kachel antippen -> Person entstummen. Braucht Host- oder
+    // Co-Host-Rechte von CueLight im Meeting, sonst liefert Zoom einen Fehler
+    // (z.B. "Current user is neither host nor cohost"), den wir dem
+    // Bedienenden direkt zeigen, damit klar ist, woran es liegt.
+    let lastMuteCallAt = 0;
+
+    listEl.addEventListener('click', (e) => {
+      const row = e.target.closest('.row');
+      if (!row) return;
+      const userId = row.dataset.userId;
+      if (!userId) {
+        log('Kein userId auf dieser Kachel, kann nicht entstummen.');
+        return;
+      }
+      hintBannerEl.classList.remove('visible');
+      // mute() hat ein dokumentiertes Rate-Limit von 1s - ein zu schnell
+      // folgender zweiter Tipp auf eine andere Kachel wuerde sonst
+      // stillschweigend verworfen statt einen Fehler zu melden.
+      const now = Date.now();
+      if (now - lastMuteCallAt < 1000) {
+        log('Zu schnell nacheinander getippt, bitte kurz warten (1s-Limit).');
+        return;
+      }
+      lastMuteCallAt = now;
+      ZoomMtg.mute({
+        userId: Number(userId),
+        mute: false,
+        success: () => log('Entstummt:', userId),
+        error: (err) => {
+          log('Entstummen fehlgeschlagen:', err);
+          alert(
+            'Konnte nicht entstummen. Hat CueLight im Meeting Host- oder ' +
+            'Co-Host-Rechte? (Fehler siehe Konsole)'
+          );
+        },
+      });
+    });
+
+    // Ein einziger offizieller Befehl fuer alle Haende gleichzeitig - kein
+    // Herumbasteln mit Einzelaufrufen mehr noetig (die haben ein
+    // dokumentiertes 1s-Rate-Limit pro Aufruf, deshalb schlug die vorherige
+    // Schleifen-Loesung bei mehreren Meldungen fehl).
+    lowerAllBtn.addEventListener('click', () => {
+      ZoomMtg.lowerAllHands({
+        success: () => log('Alle Hände heruntergenommen'),
+        error: (err) => {
+          log('Alle Hände herunternehmen fehlgeschlagen:', err);
+          alert(
+            'Konnte die Hände nicht herunternehmen. Hat CueLight im Meeting ' +
+            'Host- oder Co-Host-Rechte? (Details siehe Konsole)'
+          );
+        },
+      });
+    });
+
+    // Eigene Bestaetigung statt Zooms eingebautem confirm-Modus: der wuerde
+    // vermutlich innerhalb des von uns ausgeblendeten #zmmtg-root landen
+    // und damit unsichtbar bleiben.
+    leaveBtn.addEventListener('click', () => {
+      if (!confirm('Meeting wirklich verlassen?')) return;
+      // Ohne Query-Parameter, damit der Lesezeichen-Link nicht sofort
+      // wieder automatisch beitritt.
+      const leaveUrl = window.location.origin + window.location.pathname;
+      ZoomMtg.leaveMeeting({
+        leaveUrl,
+        success: () => log('Meeting verlassen.'),
+        error: (err) => {
+          log('Verlassen fehlgeschlagen:', err);
+          alert('Konnte das Meeting nicht verlassen, siehe Konsole.');
+        },
+      });
+    });
+
+    setInterval(render, 1000); // aktualisiert die "seit Xs"-Anzeige
+
+    // ---------------------------------------------------------------
+    // Kern: Teilnehmerliste auslesen und auf Handzeichen prüfen
+    // ---------------------------------------------------------------
+    // WICHTIG: Zooms Dokumentation nennt das Feld für "Hand gehoben"
+    // uneinheitlich. Wir prüfen deshalb mehrere bekannte Varianten und
+    // loggen jedes Attendee-Objekt roh in die Konsole, damit du beim
+    // ersten Testlauf sofort siehst, welches Feld bei dir tatsächlich kommt.
+    function isHandRaised(attendee) {
+      return Boolean(
+        attendee.raiseHand ??
+        attendee.isRaisedHand ??
+        attendee.bHandRaised ??
+        attendee.raiseHandTime ??
+        attendee.bRaiseHand ??
+        (typeof attendee.status === 'string' && attendee.status.toLowerCase().includes('hand'))
+      );
+    }
+
+    function refreshFromAttendeeList() {
+      ZoomMtg.getAttendeeslist({
+        success: (res) => {
+          // Zooms Doku ist uneinheitlich, unter welchem Feld die Liste
+          // tatsächlich steckt -> mehrere bekannte Varianten probieren.
+          const attendees =
+            (res && res.result && res.result.attendeesList) ||
+            (res && res.result && Array.isArray(res.result) && res.result) ||
+            (res && Array.isArray(res.attendeesList) && res.attendeesList) ||
+            [];
+
+          // -1, weil die Buehne selbst als stiller Teilnehmer mitzaehlt.
+          totalAttendees = Math.max(0, attendees.length - 1);
+          lastSuccessfulPollAt = Date.now();
+          hideConnectionWarning();
+
+          const selfAttendee = attendees.find((a) => a.self);
+          isHostOrCoHost = Boolean(selfAttendee && (selfAttendee.isHost || selfAttendee.isCoHost));
+
+          debugEl.textContent = `Teilnehmer: ${attendees.length} | Rohdaten siehe Konsole (F12)`;
+          log('Aktuelle Teilnehmerliste (roh):', res);
+
+          const stillRaised = new Set();
+
+          attendees.forEach((a) => {
+            const id = a.userId ?? a.userGuid ?? a.avatar ?? a.userName;
+            if (isHandRaised(a)) {
+              stillRaised.add(id);
+              const muted = a.muted !== false;
+              if (!raisedHands.has(id)) {
+                raisedHands.set(id, {
+                  name: a.userName || 'Unbekannt',
+                  since: Date.now(),
+                  muted,
+                  userId: a.userId,
+                  hasSpoken: !muted, // war beim Erkennen schon frei -> zaehlt als "schon dran"
+                });
+                log('Hand erkannt:', a.userName, a);
+              } else {
+                // Mikro-Status kann sich aendern, waehrend die Hand oben
+                // bleibt (z.B. wird kurz vor dem Sprechen freigeschaltet).
+                const entry = raisedHands.get(id);
+                entry.muted = muted;
+                entry.userId = a.userId;
+                if (!muted) entry.hasSpoken = true; // bleibt fuer den Rest der Meldung gesetzt
+              }
+            }
+          });
+
+          // wer nicht mehr in stillRaised ist, hat die Hand gesenkt / ist weg
+          [...raisedHands.keys()].forEach((id) => {
+            if (!stillRaised.has(id)) scheduleLeave(id);
+          });
+
+          render();
+        },
+        error: (err) => {
+          log('getAttendeeslist Fehler:', err);
+        },
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // Bildschirm wachhalten (Buehne steht ja auf der Buehne, Tablet
+    // soll nicht einschlafen/dimmen). Wird automatisch freigegeben, wenn
+    // der Tab in den Hintergrund geht - deshalb bei Rueckkehr neu anfragen.
+    // ---------------------------------------------------------------
+    let wakeLock = null;
+    async function requestWakeLock() {
+      if (!('wakeLock' in navigator)) {
+        log('Wake Lock API nicht verfuegbar (alter Browser?), Bildschirm kann einschlafen.');
+        return;
+      }
+      try {
+        wakeLock = await navigator.wakeLock.request('screen');
+        log('Wake Lock aktiv, Bildschirm bleibt an.');
+        wakeLock.addEventListener('release', () => log('Wake Lock freigegeben.'));
+      } catch (err) {
+        log('Wake Lock konnte nicht angefragt werden:', err);
+      }
+    }
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && boardEl.classList.contains('active')) {
+        requestWakeLock();
+      }
+    });
+
+    // ---------------------------------------------------------------
+    // Verbindungsstatus: eine stillstehende Anzeige sieht sonst genauso
+    // aus wie "niemand meldet sich" - gefaehrlich auf der Buehne. Zwei
+    // Signale kombiniert: Zooms eigener Statusevent (schnell) und ein
+    // Stillstands-Fallback anhand des letzten erfolgreichen Pollings
+    // (falls der Statusevent aus irgendeinem Grund nicht feuert).
+    // ---------------------------------------------------------------
+    let lastSuccessfulPollAt = Date.now();
+    let joinedAt = 0;
+
+    function showConnectionWarning(text) {
+      connectionBannerEl.textContent = text;
+      connectionBannerEl.style.display = 'block';
+    }
+    function hideConnectionWarning() {
+      connectionBannerEl.style.display = 'none';
+    }
+
+    function handleMeetingStatus(data) {
+      // status: 1=connecting, 2=connected, 3=disconnected, 4=reconnecting
+      log('Meeting-Status:', data);
+      if (data.status === 2) hideConnectionWarning();
+      if (data.status === 3) {
+        // Bricht die Verbindung innerhalb weniger Sekunden nach dem
+        // Beitritt ab, ist das eher eine Konto-Fehlpassung (Autorisierung
+        // gehoert zu einem anderen Zoom-Konto als dem Meeting-Host) als ein
+        // echter Netzwerkabbruch - dafuer reicht ein neuer Verbindungsversuch
+        // nicht, sondern es braucht eine neue Autorisierung.
+        const secondsSinceJoin = (Date.now() - joinedAt) / 1000;
+        if (secondsSinceJoin < 20) {
+          showConnectionWarning(
+            '⚠ Verbindung sofort getrennt - vermutlich gehört das Meeting zu ' +
+            'einem anderen Zoom-Konto als dem, für das CueLight autorisiert ist. ' +
+            'Erneut unter /oauth/authorize mit dem richtigen Konto anmelden.'
+          );
+        } else {
+          showConnectionWarning('⚠ Verbindung getrennt');
+        }
+      }
+      if (data.status === 4) showConnectionWarning('⚠ Verbindung wird wiederhergestellt …');
+    }
+
+    setInterval(() => {
+      const staleSeconds = Math.round((Date.now() - lastSuccessfulPollAt) / 1000);
+      if (staleSeconds > 15 && connectionBannerEl.style.display === 'none') {
+        showConnectionWarning(`⚠ Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);
+      }
+    }, 5000);
+
+    // ---------------------------------------------------------------
+    // Bedienhinweis: nicht beim Beitritt (den sieht meist eine andere
+    // Person als die, die spaeter auf der Buehne bedient), sondern bei
+    // der ERSTEN Meldung dieses Meetings - genau der Moment, in dem die
+    // Tipp-Funktion relevant wird. Einmal pro Meeting (In-Memory-Flag,
+    // setzt sich bei jedem neuen Beitritt automatisch zurueck). Blendet
+    // sich nach ein paar Sekunden von selbst wieder aus.
+    // ---------------------------------------------------------------
+    let hintShownThisMeeting = false;
+    function maybeShowHint() {
+      if (hintShownThisMeeting || !isHostOrCoHost) return;
+      hintShownThisMeeting = true;
+      hintBannerEl.classList.add('visible');
+      // Kein Auto-Ausblenden mehr: bleibt sichtbar, bis tatsaechlich eine
+      // Kachel angetippt wird (siehe Klick-Handler unten) - sonst wuerde
+      // der Hinweis verpasst, wenn in den ersten Sekunden niemand aufs
+      // Tablet schaut.
+    }
+
+    // ---------------------------------------------------------------
+    // Meeting SDK: Init & Join
+    // ---------------------------------------------------------------
+    async function startBoard() {
+      const meetingNumber = document.getElementById('meetingNumber').value.replace(/\s/g, '');
+      const password = document.getElementById('password').value;
+      const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+
+      if (!meetingNumber) {
+        alert('Bitte Meeting-Nummer eingeben.');
+        return;
+      }
+
+      // Signatur vom eigenen kleinen Server holen (siehe server.js)
+      const res = await fetch(`${serverUrl}/api/signature`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ meetingNumber, role: 0 }),
+      });
+
+      if (!res.ok) {
+        alert('Konnte keine Signatur vom Server holen. Läuft server.js?');
+        return;
+      }
+      const { signature } = await res.json();
+
+      // App-Account und Meeting-Host-Account sind unterschiedlich ->
+      // zusätzlich ein OBF-Token holen, mit dem der Host die App autorisiert.
+      const obfRes = await fetch(
+        `${serverUrl}/api/obf-token?meetingNumber=${encodeURIComponent(meetingNumber)}`
+      );
+      if (!obfRes.ok) {
+        const body = await obfRes.json().catch(() => ({}));
+        if (body.error === 'not_authorized') {
+          const authUrl = `${serverUrl}/oauth/authorize`;
+          const authWindow = window.open(authUrl, '_blank');
+          if (!authWindow) {
+            // Popup-Blocker hat's verhindert -> Link zum manuellen Öffnen
+            alert(
+              'Der Meeting-Host hat die App noch nicht freigegeben.\n\n' +
+              `Bitte einmalig ${authUrl} öffnen und mit dem ` +
+              'Zoom-Account einloggen, der das Meeting hostet.\n\n' +
+              '(Dein Browser hat das automatische Öffnen blockiert – ' +
+              'bitte Popups für diese Seite erlauben und erneut versuchen.)'
+            );
+          } else {
+            alert(
+              'Es hat sich ein neues Fenster geöffnet: Bitte dort mit dem ' +
+              'Zoom-Account einloggen, der das Meeting hostet, und danach ' +
+              '"CueLight starten" hier erneut klicken.'
+            );
+          }
+        } else {
+          alert('Konnte kein OBF-Token holen, siehe Konsole.');
+        }
+        console.error('OBF-Token-Fehler:', body);
+        return;
+      }
+      const { obfToken } = await obfRes.json();
+
+      setupEl.style.display = 'none';
+      boardEl.classList.add('active');
+
+      ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
+      ZoomMtg.preLoadWasm();
+      ZoomMtg.prepareWebSDK();
+
+      ZoomMtg.init({
+        leaveUrl: window.location.origin + window.location.pathname,
+        patchJsMedia: true,
+        isSupportAV: false, // CueLight braucht nie Kamera/Mikro, kein Berechtigungsdialog nötig
+        success: () => {
+          ZoomMtg.join({
+            signature,
+            meetingNumber,
+            passWord: password,
+            userName: 'CueLight',
+            obfToken,
+            success: () => {
+              log('Beigetreten. Warte auf Teilnehmer-Events …');
+              joinedAt = Date.now();
+              lastSuccessfulPollAt = Date.now();
+              requestWakeLock();
+              ZoomMtg.inMeetingServiceListener('onMeetingStatus', handleMeetingStatus);
+
+              // Direkt beim Join einmal Liste holen
+              refreshFromAttendeeList();
+
+              // Und danach bei jeder relevanten Änderung. setTimeout(...,0)
+              // ist wichtig: Zoom ruft diese Callbacks synchron waehrend
+              // seiner eigenen internen Redux-Verarbeitung auf - direktes
+              // erneutes getAttendeeslist() dabei fuehrt zu "Redux error #3"
+              // (reentrant dispatch). Der Timeout schiebt den Aufruf auf den
+              // naechsten Tick, nachdem Zoom fertig ist.
+              const deferredRefresh = () => setTimeout(refreshFromAttendeeList, 0);
+              ZoomMtg.inMeetingServiceListener('onUserUpdate', deferredRefresh);
+              ZoomMtg.inMeetingServiceListener('onUserJoin', deferredRefresh);
+              ZoomMtg.inMeetingServiceListener('onUserLeave', deferredRefresh);
+
+              // Zusätzliches Sicherheitsnetz: alle 3s neu abfragen,
+              // falls ein Event mal nicht feuert (kommt in der Praxis vor).
+              setInterval(refreshFromAttendeeList, 3000);
+            },
+            error: (err) => {
+              console.error('Join-Fehler:', err);
+              alert('Beitritt fehlgeschlagen, siehe Konsole.');
+            },
+          });
+        },
+        error: (err) => {
+          console.error('Init-Fehler:', err);
+        },
+      });
+    }
+
+    document.getElementById('joinBtn').addEventListener('click', startBoard);
+
+    // Lesezeichen-Link: baut sich live aus Meeting-Nummer + Passwort auf und
+    // startet beim Öffnen automatisch (siehe URL-Parameter-Handling unten).
+    function updateBookmarkLink() {
+      const meetingNumber = document.getElementById('meetingNumber').value.trim();
+      const password = document.getElementById('password').value;
+      const url = new URL(window.location.href);
+      url.search = '';
+      if (meetingNumber) url.searchParams.set('meeting', meetingNumber);
+      if (password) url.searchParams.set('password', password);
+      document.getElementById('bookmarkLink').value = meetingNumber ? url.toString() : '';
+    }
+    document.getElementById('meetingNumber').addEventListener('input', updateBookmarkLink);
+    document.getElementById('password').addEventListener('input', updateBookmarkLink);
+
+    document.getElementById('copyLinkBtn').addEventListener('click', async () => {
+      const linkEl = document.getElementById('bookmarkLink');
+      if (!linkEl.value) {
+        alert('Erst Meeting-Nummer eingeben, dann Link generieren.');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(linkEl.value);
+      } catch (e) {
+        linkEl.select();
+        document.execCommand('copy');
+      }
+    });
+
+    // Server-URL automatisch mit der eigenen Herkunft füllen (funktioniert
+    // sowohl lokal als auch hinter der cloudflared-Domain), manuell
+    // überschreibbar falls Server und CueLight getrennt laufen.
+    document.getElementById('serverUrl').value = window.location.origin;
+
+    // Lesezeichen-Link: falls Meeting-Nummer (und ggf. Passwort) per
+    // URL-Parameter mitkommen, Felder vorausfüllen und direkt starten -
+    // das ist der ganze Zweck des gespeicherten Links.
+    const params = new URLSearchParams(window.location.search);
+    const linkedMeeting = params.get('meeting');
+    if (linkedMeeting) {
+      document.getElementById('meetingNumber').value = linkedMeeting;
+      document.getElementById('password').value = params.get('password') || '';
+      updateBookmarkLink();
+      startBoard();
+    }
+  </script>
+</body>
+</html>

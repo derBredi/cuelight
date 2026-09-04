@@ -1,0 +1,22 @@
+# Zieht das fertige, automatisch veröffentlichte Image.
+#
+#   docker compose up -d
+
+services:
+  cuelight:
+    image: ghcr.io/derbredi/cuelight:latest
+    container_name: cuelight
+    restart: unless-stopped
+    environment:
+      ZOOM_MEETING_SDK_KEY: "dein_sdk_key_hier"
+      ZOOM_MEETING_SDK_SECRET: "dein_sdk_secret_hier"
+      ZOOM_OAUTH_CLIENT_ID: "dein_oauth_client_id_hier"
+      ZOOM_OAUTH_CLIENT_SECRET: "dein_oauth_client_secret_hier"
+      APP_BASE_URL: "https://deine-domain.de"
+      PORT: "4000"
+    volumes:
+      # Verzeichnis muss vorher existieren und dem Container-User (UID/GID
+      # 1000) gehören: mkdir -p ./data && chown -R 1000:1000 ./data
+      - ./data:/app/data
+    ports:
+      - "4000:4000"
