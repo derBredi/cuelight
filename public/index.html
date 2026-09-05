@@ -195,6 +195,14 @@
     animation: connectionPulse 1s ease-in-out infinite;
   }
 
+  /* Neutraler Wartezustand (Warteraum / Meeting noch nicht gestartet) -
+     bewusst nicht alarmierend wie ein echter Verbindungsabbruch. */
+  #connectionBanner.waiting {
+    background: var(--zoom-blue);
+    animation: none;
+    font-weight: 600;
+  }
+
   @keyframes connectionPulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
@@ -741,6 +749,7 @@
           // -1, weil die Buehne selbst als stiller Teilnehmer mitzaehlt.
           totalAttendees = Math.max(0, attendees.length - 1);
           lastSuccessfulPollAt = Date.now();
+          hasEverConnected = true; // Sicherheitsnetz, falls onMeetingStatus mal ausbleibt
           hideConnectionWarning();
 
           const selfAttendee = attendees.find((a) => a.self);
@@ -820,12 +829,23 @@
     // Signale kombiniert: Zooms eigener Statusevent (schnell) und ein
     // Stillstands-Fallback anhand des letzten erfolgreichen Pollings
     // (falls der Statusevent aus irgendeinem Grund nicht feuert).
+    //
+    // Wichtig: "noch nie verbunden" (Warteraum, Meeting noch nicht
+    // gestartet, oder tatsaechliche Konto-Fehlpassung) sieht am Anfang
+    // technisch identisch aus - alle drei Faelle erreichen nie den
+    // "verbunden"-Status. Deshalb zuerst nur eine neutrale, nicht
+    // alarmierende Meldung zeigen; erst wenn das ungewoehnlich lange
+    // dauert, den Verdacht auf Konto-Fehlpassung ergaenzen. Ein roter
+    // "Verbindung getrennt"-Alarm erscheint nur noch, wenn vorher
+    // tatsaechlich schon erfolgreich verbunden war.
     // ---------------------------------------------------------------
     let lastSuccessfulPollAt = Date.now();
     let joinedAt = 0;
+    let hasEverConnected = false;
 
-    function showConnectionWarning(text) {
+    function showConnectionWarning(text, { waiting = false } = {}) {
       connectionBannerEl.textContent = text;
+      connectionBannerEl.classList.toggle('waiting', waiting);
       connectionBannerEl.style.display = 'block';
     }
     function hideConnectionWarning() {
@@ -845,28 +865,48 @@
     function handleMeetingStatus(data) {
       // status: 1=connecting, 2=connected, 3=disconnected, 4=reconnecting
       log('Meeting-Status:', data);
-      if (data.status === 2) hideConnectionWarning();
-      if (data.status === 3) {
-        // Bricht die Verbindung innerhalb weniger Sekunden nach dem
-        // Beitritt ab, ist das eher eine Konto-Fehlpassung (Autorisierung
-        // gehoert zu einem anderen Zoom-Konto als dem Meeting-Host) als ein
-        // echter Netzwerkabbruch - dafuer reicht ein neuer Verbindungsversuch
-        // nicht, sondern es braucht eine neue Autorisierung.
-        const secondsSinceJoin = (Date.now() - joinedAt) / 1000;
-        if (secondsSinceJoin < 20) {
-          showConnectionWarning(
-            '⚠ Verbindung sofort getrennt - vermutlich gehört das Meeting zu ' +
-            'einem anderen Zoom-Konto als dem, für das CueLight autorisiert ist. ' +
-            'Erneut unter /oauth/authorize mit dem richtigen Konto anmelden.'
-          );
+
+      if (data.status === 2) {
+        hasEverConnected = true;
+        hideConnectionWarning();
+        return;
+      }
+
+      if (data.status === 1 || data.status === 3) {
+        if (!hasEverConnected) {
+          // Noch nie verbunden gewesen: ganz normal, wenn das Meeting noch
+          // nicht gestartet ist oder ein Warteraum aktiv ist - deshalb
+          // erstmal neutral formulieren, nicht wie ein Fehler.
+          const secondsSinceJoin = (Date.now() - joinedAt) / 1000;
+          if (secondsSinceJoin < 60) {
+            showConnectionWarning(
+              '⏳ Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
+              { waiting: true }
+            );
+          } else {
+            showConnectionWarning(
+              '⏳ Warte weiterhin auf Beitritt … Dauert das ungewöhnlich lange, ' +
+              'gehört das Meeting evtl. zu einem anderen Zoom-Konto als dem, ' +
+              'für das CueLight autorisiert ist - dann hilft eine neue ' +
+              'Autorisierung unter /oauth/authorize.',
+              { waiting: true }
+            );
+          }
         } else {
+          // War schon mal verbunden, jetzt weg - das ist ein echter Abbruch.
           showConnectionWarning('⚠ Verbindung getrennt');
         }
+        return;
       }
+
       if (data.status === 4) showConnectionWarning('⚠ Verbindung wird wiederhergestellt …');
     }
 
     setInterval(() => {
+      // Erst ab dem ersten erfolgreichen Beitritt ueberhaupt relevant -
+      // vorher ist "kein erfolgreiches Update" der normale Wartezustand,
+      // kein Stillstand.
+      if (!hasEverConnected) return;
       const staleSeconds = Math.round((Date.now() - lastSuccessfulPollAt) / 1000);
       if (staleSeconds > 15 && connectionBannerEl.style.display === 'none') {
         showConnectionWarning(`⚠ Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);

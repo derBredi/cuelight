@@ -2,7 +2,6 @@
   "name": "CueLight",
   "short_name": "CueLight",
   "description": "Zeigt Zoom-Wortmeldungen groß und gut sichtbar an",
-  "start_url": "/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#1c1c2e",
