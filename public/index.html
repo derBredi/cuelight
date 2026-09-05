@@ -538,7 +538,10 @@
 
       emptyEl.style.display = 'none';
       listEl.style.display = 'flex';
-      lowerAllBtn.style.display = activeEntries.length > 0 ? 'block' : 'none';
+      // Genau wie der Hinweis-Banner nur zeigen, wenn die Funktion ueberhaupt
+      // etwas bewirken kann - der Button braucht dieselben Host-/Co-Host-
+      // Rechte wie das Entstummen einzelner Kacheln.
+      lowerAllBtn.style.display = (activeEntries.length > 0 && isHostOrCoHost) ? 'block' : 'none';
       if (activeEntries.length > 0) maybeShowHint();
 
       activeEntries.forEach(([id, info]) => {
