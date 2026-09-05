@@ -1,5 +1,6 @@
 # Zieht das fertige, automatisch veröffentlichte Image.
 #
+#   cp .env.example .env    # und dort die Werte eintragen
 #   docker compose up -d
 
 services:
@@ -7,16 +8,17 @@ services:
     image: ghcr.io/derbredi/cuelight:latest
     container_name: cuelight
     restart: unless-stopped
-    environment:
-      ZOOM_MEETING_SDK_KEY: "dein_sdk_key_hier"
-      ZOOM_MEETING_SDK_SECRET: "dein_sdk_secret_hier"
-      ZOOM_OAUTH_CLIENT_ID: "dein_oauth_client_id_hier"
-      ZOOM_OAUTH_CLIENT_SECRET: "dein_oauth_client_secret_hier"
-      APP_BASE_URL: "https://deine-domain.de"
-      PORT: "4000"
+    # Zugangsdaten stehen in der .env-Datei daneben, nicht in dieser Datei -
+    # so landen sie nicht versehentlich in einem Commit und tauchen auch
+    # nicht in "docker inspect" oder der Portainer-Oberfläche als Klartext
+    # in der Stack-Definition auf.
+    env_file:
+      - .env
     volumes:
       # Container regelt die Zugriffsrechte hierfür selbst beim Start -
       # kein manuelles chown auf dem Host nötig.
       - ./data:/app/data
     ports:
-      - "4000:4000"
+      # Nur lokal gebunden: davor gehört ein Reverse-Proxy (cloudflared,
+      # nginx, Caddy). Für einen reinen Test im LAN "127.0.0.1:" entfernen.
+      - "127.0.0.1:4000:4000"

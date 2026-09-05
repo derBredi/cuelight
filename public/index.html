@@ -33,6 +33,18 @@
     --speak-dark: #17a34a;
     --speak-text: #062012;
     --speak-glow: rgba(34, 197, 94, 0.75);
+
+    /* Ein einziger Radius-Satz statt pro Element neu erfunden:
+       klein = Eingaben/Buttons, gross = Kacheln. */
+    --r-sm: 6px;
+    --r-lg: 12px;
+    --focus: #9ec7ff;
+  }
+
+  /* Sichtbarer Tastatur-Fokus - vorher gab es gar keinen. */
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
   }
 
   * { box-sizing: border-box; }
@@ -70,13 +82,46 @@
     padding: 32px;
     background: var(--panel);
     border: 1px solid var(--line);
-    border-radius: 4px;
+    border-radius: var(--r-lg);
+  }
+
+  #setupHead {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 6px;
+  }
+
+  #setupHead img {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex-shrink: 0;
   }
 
   #setup h1 {
-    font-size: 20px;
-    font-weight: 600;
-    margin: 0 0 20px;
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+  }
+
+  #setup .lede {
+    margin: 0 0 22px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: var(--muted);
+  }
+
+  #setup details {
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  #setup details summary {
+    cursor: pointer;
+    padding: 4px 0;
   }
 
   #setup label {
@@ -88,25 +133,37 @@
 
   #setup input {
     width: 100%;
-    padding: 10px 12px;
+    padding: 12px;
     background: #000;
     border: 1px solid var(--line);
-    border-radius: 3px;
+    border-radius: var(--r-sm);
     color: var(--text);
-    font-size: 15px;
+    font-size: 16px; /* < 16px laesst iOS beim Fokus hineinzoomen */
+  }
+
+  #meetingNumber {
+    font-size: 22px;
+    letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
   }
 
   #setup button {
     margin-top: 24px;
     width: 100%;
+    min-height: 48px;
     padding: 12px;
     background: var(--zoom-blue);
     color: #ffffff;
     border: none;
-    border-radius: 3px;
-    font-size: 15px;
+    border-radius: var(--r-sm);
+    font-size: 16px;
     font-weight: 600;
     cursor: pointer;
+  }
+
+  #setup button[disabled] {
+    opacity: 0.55;
+    cursor: default;
   }
 
   #copyLinkBtn {
@@ -139,7 +196,11 @@
     display: none;
     position: fixed;
     inset: 0;
-    padding: 4vh 5vw;
+    padding:
+      calc(4vh + env(safe-area-inset-top))
+      calc(5vw + env(safe-area-inset-right))
+      calc(4vh + env(safe-area-inset-bottom))
+      calc(5vw + env(safe-area-inset-left));
     background: var(--bg);
     z-index: 999999;
     overflow-y: auto;
@@ -152,22 +213,28 @@
     text-align: center;
     margin-bottom: 1.5vh;
     color: var(--muted);
-    font-size: clamp(13px, 1.4vw, 16px);
+    font-size: clamp(15px, 1.7vw, 20px);
     letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
   }
 
+  /* 44px ist die kleinste Flaeche, die sich im Halbdunkel neben der
+     Buehne noch zuverlaessig treffen laesst - vorher 32px. */
   #meetingInfoBtn {
     position: fixed;
     top: calc(1.5vh + env(safe-area-inset-top));
     right: calc(1.5vh + env(safe-area-inset-right));
     z-index: 30;
-    width: 32px;
-    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
     border-radius: 50%;
     background: var(--panel);
     color: var(--muted);
     border: 1px solid var(--line);
-    font-size: 16px;
+    font-size: 18px;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -258,11 +325,14 @@
   #leaveBtn {
     position: fixed;
     top: calc(1.5vh + env(safe-area-inset-top));
-    right: calc(1.5vh + env(safe-area-inset-right) + 42px);
+    right: calc(1.5vh + env(safe-area-inset-right) + 54px);
     z-index: 30;
-    width: 32px;
-    height: 32px;
-    padding: 6px;
+    width: 44px;
+    height: 44px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border-radius: 50%;
     background: var(--panel);
     color: var(--muted);
@@ -275,6 +345,20 @@
     filter: brightness(0.85);
   }
 
+  /* Zweiter Tipp bestaetigt - kein blockierender confirm()-Dialog. */
+  #leaveBtn.confirming {
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #dc2626;
+    width: auto;
+    border-radius: 22px;
+    padding: 0 14px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  #leaveBtn.confirming svg { display: none; }
+
   #leaveBtn svg {
     width: 100%;
     height: 100%;
@@ -283,11 +367,20 @@
   #empty-state {
     height: 80vh;
     display: flex;
+    flex-direction: column;
+    gap: 10px;
     align-items: center;
     justify-content: center;
+    text-align: center;
     color: var(--muted);
     font-size: clamp(18px, 2.2vw, 28px);
     letter-spacing: 0.02em;
+  }
+
+  #empty-state .sub {
+    font-size: clamp(12px, 1.2vw, 15px);
+    color: var(--line);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Top-ausgerichtet statt zentriert: bei vielen Meldungen scrollt man von
@@ -313,12 +406,21 @@
     padding: 2.2vh 3vw;
     background: var(--flag);
     border: 1px solid var(--flag-dark);
-    border-radius: 6px;
+    border-radius: var(--r-lg);
     box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    animation: pulse 1.1s ease-in-out infinite;
     cursor: pointer;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Es pulsiert, was NEU dazugekommen ist - nicht dauerhaft alles.
+     Aus dem Augenwinkel nimmt man Veraenderung wahr, nicht Dauerzustand:
+     ein Dauerblinken aller Kacheln wird nach zwanzig Sekunden zur Tapete,
+     waehrend eine frisch anfangende Bewegung zuverlaessig den Blick holt.
+     Die grosse orange Flaeche traegt danach die Sichtbarkeit von allein.
+     Keine Rangordnung: wer drankommt, entscheidet der Leiter. */
+  .row.fresh {
+    animation: pulse 1.1s ease-in-out infinite;
   }
 
   .row:active {
@@ -391,11 +493,14 @@
     white-space: nowrap;
   }
 
+  /* Ziffernbreite fixiert, sonst zappelt die Zeile bei jedem
+     Sekundenwechsel seitlich hin und her. */
   .row .wait {
     margin-left: auto;
     font-size: clamp(14px, 1.4vw, 18px);
     color: rgba(36, 26, 0, 0.65);
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
   }
 
   /* Pulsiert per Leuchten, leichter Skalierung UND echtem Farbwechsel -
@@ -425,27 +530,97 @@
     color: var(--muted);
     font-family: ui-monospace, monospace;
   }
+
+  /* Meldungen ohne alert(): ein alert() blockiert den JS-Thread, damit
+     steht waehrenddessen auch die Aktualisierung der Anzeige still -
+     ausgerechnet im Moment, in dem gerade etwas schiefgegangen ist. */
+  #toasts {
+    position: fixed;
+    left: 50%;
+    bottom: calc(3vh + env(safe-area-inset-bottom));
+    transform: translateX(-50%);
+    z-index: 1000000;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    width: min(92vw, 640px);
+    pointer-events: none;
+  }
+
+  .toast {
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: var(--r-sm);
+    background: var(--panel);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-size: clamp(14px, 1.5vw, 18px);
+    line-height: 1.4;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+
+  .toast.show { opacity: 1; transform: translateY(0); }
+  .toast.error { border-color: #dc2626; background: #3a1414; }
+
+  /* Wer Bewegung reduziert haben will, bekommt statt des Pulsierens
+     einen ruhigen, dauerhaft leuchtenden Rahmen - die Information
+     "diese Kachel ist die naechste" bleibt erhalten. */
+  @media (prefers-reduced-motion: reduce) {
+    .row.fresh {
+      animation: none;
+      outline: 4px solid var(--flag-flash);
+      outline-offset: 3px;
+    }
+    #connectionBanner { animation: none; }
+    .row { transition: none; }
+  }
 </style>
 </head>
 <body>
 
   <div id="setup">
-    <h1>CueLight einrichten</h1>
+    <div id="setupHead">
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>CueLight</h1>
+    </div>
+    <p class="lede">
+      Zeigt Wortmeldungen aus einem Zoom-Meeting gross an. Meeting-Nummer
+      eintragen, starten - CueLight tritt still als Teilnehmer bei.
+    </p>
+
     <label for="meetingNumber">Meeting-Nummer</label>
-    <input id="meetingNumber" placeholder="123 4567 8901" inputmode="numeric" />
+    <input id="meetingNumber" placeholder="123 4567 8901" inputmode="numeric"
+           autocomplete="off" />
 
-    <label for="password">Passwort (falls vorhanden)</label>
-    <input id="password" placeholder="leer lassen wenn keins" />
-
-    <label for="serverUrl">Signature-Server-URL</label>
-    <input id="serverUrl" value="" />
+    <label for="password">Meeting-Passwort</label>
+    <input id="password" placeholder="leer lassen, falls keins" autocomplete="off" />
 
     <button id="joinBtn">CueLight starten</button>
     <p id="compatWarning" style="display:none;"></p>
 
-    <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
-    <input id="bookmarkLink" readonly />
-    <button id="copyLinkBtn" type="button">Link kopieren</button>
+    <details>
+      <summary>Lesezeichen und erweiterte Einstellungen</summary>
+
+      <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
+      <input id="bookmarkLink" readonly />
+      <button id="copyLinkBtn" type="button">Link kopieren</button>
+      <p class="hint">
+        Achtung: Der Link enthaelt das Meeting-Passwort im Klartext und landet
+        so auch im Browser-Verlauf. Nur auf Geraeten speichern, die du selbst
+        kontrollierst.
+      </p>
+
+      <label for="serverUrl">Signature-Server-URL</label>
+      <input id="serverUrl" value="" />
+      <p class="hint">
+        Ist normalerweise schon richtig ausgefuellt. Nur aendern, wenn der
+        Server unter einer anderen Adresse laeuft als diese Seite.
+      </p>
+    </details>
   </div>
 
   <div id="board">
@@ -462,10 +637,14 @@
     </button>
     <div id="counter"></div>
     <button id="lowerAllBtn" style="display:none;">Alle Hände herunternehmen</button>
-    <div id="empty-state">Aktuell meldet sich niemand</div>
+    <div id="empty-state">
+      <div>Aktuell meldet sich niemand</div>
+      <div class="sub" id="emptySub"></div>
+    </div>
     <div id="list" style="display:none;"></div>
   </div>
 
+  <div id="toasts" aria-live="polite"></div>
   <div id="debug"></div>
 
   <!-- Zoom Meeting SDK (Component View) -->
@@ -498,9 +677,26 @@
     const counterEl = document.getElementById('counter');
     const connectionBannerEl = document.getElementById('connectionBanner');
     const hintBannerEl = document.getElementById('hintBanner');
+    const toastsEl = document.getElementById('toasts');
+    const emptySubEl = document.getElementById('emptySub');
+    const joinBtn = document.getElementById('joinBtn');
 
     function log(...args) {
       console.log('[CueLight]', ...args);
+    }
+
+    // Ersatz fuer alert(): blockiert den JS-Thread nicht, verdeckt die
+    // Anzeige nicht dauerhaft und braucht kein Wegklicken auf der Buehne.
+    function toast(text, { error = false, ms = 6000 } = {}) {
+      const el = document.createElement('div');
+      el.className = 'toast' + (error ? ' error' : '');
+      el.textContent = text;
+      toastsEl.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('show'));
+      setTimeout(() => {
+        el.classList.remove('show');
+        setTimeout(() => el.remove(), 300);
+      }, ms);
     }
 
     // ---------------------------------------------------------------
@@ -529,22 +725,28 @@
         <line x1="8" y1="23" x2="16" y2="23"/>
       </svg>`;
 
+    // Original-Inhalt des Verlassen-Knopfes, um ihn nach der Nachfrage
+    // wiederherzustellen.
+    const LEAVE_ICON_SVG = document.getElementById('leaveBtn').innerHTML;
+
     const rowElements = new Map(); // participantId -> DOM-Element der Kachel
+    let lastOrderKey = ''; // welche Reihenfolge steht gerade im DOM?
 
     function render() {
+      // Feste Reihenfolge nach Meldezeitpunkt, laengste Wartezeit oben -
+      // und sonst nichts. Frueher sind Kacheln nach oben gesprungen, sobald
+      // sich der Mikrofon-Status aenderte. Wenn der Leiter frei auswaehlt,
+      // ist so ein Sprung gefaehrlich: die Kachel wandert genau in dem
+      // Moment weg, in dem der Finger schon unterwegs ist, und es wird die
+      // falsche Person freigeschaltet. Position = wann gemeldet, fertig.
       const activeEntries = [...raisedHands.entries()]
         .filter(([, info]) => !info.leaving)
-        .sort((a, b) => {
-          // Reihenfolge: offenes Mikro (spricht gleich) zuerst, dann neue
-          // Meldungen, dann bereits drangewesene (ruhige) Meldungen zuletzt.
-          // Innerhalb einer Gruppe: laengste Meldung zuerst.
-          const priority = (info) => (!info.muted ? 0 : info.hasSpoken ? 2 : 1);
-          const prioDiff = priority(a[1]) - priority(b[1]);
-          if (prioDiff !== 0) return prioDiff;
-          return a[1].since - b[1].since;
-        });
+        .sort((a, b) => a[1].since - b[1].since);
 
       counterEl.textContent = `${totalAttendees} im Meeting · ${activeEntries.length} Meldung${activeEntries.length === 1 ? '' : 'en'}`;
+      emptySubEl.textContent = currentMeetingNumber
+        ? `Meeting ${currentMeetingNumber} · ${totalAttendees} Teilnehmende`
+        : '';
 
       // raisedHands.size (nicht activeEntries.length!) entscheidet ueber
       // Leer-Zustand, damit eine gerade ausblendende Kachel ihre Animation
@@ -564,15 +766,28 @@
       lowerAllBtn.style.display = (activeEntries.length > 0 && isHostOrCoHost) ? 'block' : 'none';
       if (activeEntries.length > 0) maybeShowHint();
 
-      activeEntries.forEach(([id, info]) => {
+      // WICHTIG: nur umsortieren, wenn sich die Reihenfolge wirklich
+      // geaendert hat. appendChild auf ein bereits vorhandenes Kind ist ein
+      // Entfernen-und-Wiedereinfuegen, und das setzt laufende CSS-Animationen
+      // zurueck - vorher wurde der Puls dadurch jede Sekunde neu gestartet
+      // und kam nie sauber durch.
+      const orderKey = activeEntries.map(([id]) => id).join('|');
+      const reorder = orderKey !== lastOrderKey;
+      lastOrderKey = orderKey;
+
+      activeEntries.forEach(([id, info], index) => {
         let el = rowElements.get(id);
         if (!el) {
           el = buildRowElement();
           rowElements.set(id, el);
           listEl.appendChild(el); // hart einblenden: sofort volle Deckkraft, keine Animation
         }
-        updateRowElement(el, info);
-        listEl.appendChild(el); // an die (sortierte) Position ans Ende verschieben
+        updateRowElement(el, info, index);
+        if (reorder && el.parentNode === listEl) {
+          listEl.appendChild(el); // an die neue sortierte Position schieben
+        } else if (el.parentNode !== listEl) {
+          listEl.appendChild(el);
+        }
       });
       // Ausblendende Kacheln bleiben bewusst unangetastet an ihrer aktuellen
       // Position liegen (siehe scheduleLeave) - werden erst nach Ablauf der
@@ -590,11 +805,24 @@
       return div;
     }
 
-    function updateRowElement(el, info) {
+    // Wie lange eine neue Meldung um Aufmerksamkeit wirbt, bevor sie in den
+    // ruhigen Zustand uebergeht. Kuerzer = weniger Unruhe, laenger = mehr
+    // Chance, dass ein Blick sie im bewegten Zustand erwischt.
+    const NEW_HIGHLIGHT_MS = 15000;
+
+    function updateRowElement(el, info, index) {
       const seconds = Math.max(0, Math.round((Date.now() - info.since) / 1000));
-      el.querySelector('.mic').innerHTML = info.muted ? MIC_OFF_SVG : MIC_ON_SVG;
+      // Icon nur bei echter Aenderung neu setzen: sonst wird jede Sekunde
+      // fuer jede Kachel SVG neu geparst.
+      if (el._muted !== info.muted) {
+        el.querySelector('.mic').innerHTML = info.muted ? MIC_OFF_SVG : MIC_ON_SVG;
+        el._muted = info.muted;
+      }
       el.querySelector('.name').textContent = info.name;
       el.querySelector('.wait').textContent = `seit ${seconds}s`;
+      // Frisch gemeldet = pulsiert, danach ruhig (siehe CSS). render()
+      // laeuft jede Sekunde, die Klasse faellt also von selbst wieder weg.
+      el.classList.toggle('fresh', Date.now() - info.since < NEW_HIGHLIGHT_MS);
       if (typeof info.userId === 'number') {
         el.dataset.userId = info.userId;
       } else {
@@ -622,12 +850,28 @@
       // Markieren als "leaving" - sonst hat der Browser keinen Vorher-Zustand
       // zum Uebergang von animieren (die Transition wuerde nicht sichtbar).
       requestAnimationFrame(() => el.classList.add('leaving'));
-      setTimeout(() => {
+      info.leaveTimer = setTimeout(() => {
         el.remove();
         rowElements.delete(id);
         raisedHands.delete(id);
+        lastOrderKey = '';
         render();
       }, 450);
+    }
+
+    // Gegenstueck zu scheduleLeave: taucht jemand doch wieder in der Liste
+    // auf, bevor die Ausblend-Animation durch ist (ein einzelner Aussetzer
+    // im Polling reicht dafuer schon), wird das Ausblenden abgebrochen.
+    // Ohne das verschwand die Kachel kurz und kam mit zurueckgesetztem
+    // "seit Xs"-Zaehler wieder.
+    function cancelLeave(id) {
+      const info = raisedHands.get(id);
+      if (!info || !info.leaving) return;
+      clearTimeout(info.leaveTimer);
+      info.leaving = false;
+      info.leaveTimer = null;
+      const el = rowElements.get(id);
+      if (el) el.classList.remove('leaving');
     }
 
     // Ganze Kachel antippen -> Person entstummen. Braucht Host- oder
@@ -651,6 +895,7 @@
       const now = Date.now();
       if (now - lastMuteCallAt < 1000) {
         log('Zu schnell nacheinander getippt, bitte kurz warten (1s-Limit).');
+        toast('Kurz warten - Zoom erlaubt nur eine Freischaltung pro Sekunde.');
         return;
       }
       lastMuteCallAt = now;
@@ -660,9 +905,10 @@
         success: () => log('Entstummt:', userId),
         error: (err) => {
           log('Entstummen fehlgeschlagen:', err);
-          alert(
-            'Konnte nicht entstummen. Hat CueLight im Meeting Host- oder ' +
-            'Co-Host-Rechte? (Fehler siehe Konsole)'
+          toast(
+            'Freischalten nicht moeglich. CueLight braucht dafuer Host- oder ' +
+            'Co-Host-Rechte im Meeting.',
+            { error: true }
           );
         },
       });
@@ -677,9 +923,10 @@
         success: () => log('Alle Hände heruntergenommen'),
         error: (err) => {
           log('Alle Hände herunternehmen fehlgeschlagen:', err);
-          alert(
-            'Konnte die Hände nicht herunternehmen. Hat CueLight im Meeting ' +
-            'Host- oder Co-Host-Rechte? (Details siehe Konsole)'
+          toast(
+            'Haende herunternehmen nicht moeglich. CueLight braucht dafuer ' +
+            'Host- oder Co-Host-Rechte im Meeting.',
+            { error: true }
           );
         },
       });
@@ -688,8 +935,24 @@
     // Eigene Bestaetigung statt Zooms eingebautem confirm-Modus: der wuerde
     // vermutlich innerhalb des von uns ausgeblendeten #zmmtg-root landen
     // und damit unsichtbar bleiben.
+    // Zweistufig statt confirm(): der Dialog wuerde den JS-Thread anhalten
+    // und damit die Anzeige einfrieren. Erster Tipp fragt nach, zweiter
+    // fuehrt aus, nach 4s ist die Nachfrage wieder weg.
+    let leaveArmed = null;
     leaveBtn.addEventListener('click', () => {
-      if (!confirm('Meeting wirklich verlassen?')) return;
+      if (!leaveArmed) {
+        leaveBtn.classList.add('confirming');
+        leaveBtn.textContent = 'Wirklich verlassen?';
+        leaveArmed = setTimeout(() => {
+          leaveBtn.classList.remove('confirming');
+          leaveBtn.innerHTML = LEAVE_ICON_SVG;
+          leaveArmed = null;
+        }, 4000);
+        return;
+      }
+      clearTimeout(leaveArmed);
+      leaveArmed = null;
+      stopPolling();
       // Ohne Query-Parameter, damit der Lesezeichen-Link nicht sofort
       // wieder automatisch beitritt.
       const leaveUrl = window.location.origin + window.location.pathname;
@@ -698,7 +961,7 @@
         success: () => log('Meeting verlassen.'),
         error: (err) => {
           log('Verlassen fehlgeschlagen:', err);
-          alert('Konnte das Meeting nicht verlassen, siehe Konsole.');
+          toast('Konnte das Meeting nicht verlassen.', { error: true });
         },
       });
     });
@@ -716,13 +979,13 @@
           if (info.meetingNumber) lines.push('Meeting-Nummer: ' + info.meetingNumber);
           if (info.meetingHostName) lines.push('Host: ' + info.meetingHostName);
           if (lines.length === 0) {
-            lines.push('Keine Meeting-Infos verfügbar (siehe Konsole für Rohdaten).');
+            lines.push('Keine Meeting-Infos verfügbar (Rohdaten siehe Konsole).');
           }
-          alert(lines.join('\n'));
+          toast(lines.join(' · '), { ms: 10000 });
         },
         error: (err) => {
           log('getCurrentMeetingInfo fehlgeschlagen:', err);
-          alert('Meeting-Infos konnten nicht abgerufen werden (siehe Konsole).');
+          toast('Meeting-Infos nicht abrufbar.', { error: true });
         },
       });
     });
@@ -758,8 +1021,17 @@
             (res && Array.isArray(res.attendeesList) && res.attendeesList) ||
             [];
 
-          // -1, weil die Buehne selbst als stiller Teilnehmer mitzaehlt.
-          totalAttendees = Math.max(0, attendees.length - 1);
+          // Eine leere Liste bei bestehender Verbindung ist praktisch immer
+          // ein Aussetzer, kein echtes "alle sind weg" - CueLight selbst
+          // muesste ja mit drinstehen. Wuerde man sie ernst nehmen, waere
+          // die Anzeige schlagartig leer.
+          if (attendees.length === 0 && hasEverConnected) {
+            log('Leere Teilnehmerliste erhalten - ignoriert (vermutlich Aussetzer).');
+            return;
+          }
+
+          // CueLight selbst nicht mitzaehlen.
+          totalAttendees = attendees.filter((a) => !a.self).length;
           lastSuccessfulPollAt = Date.now();
           hasEverConnected = true; // Sicherheitsnetz, falls onMeetingStatus mal ausbleibt
           hideConnectionWarning();
@@ -773,9 +1045,13 @@
           const stillRaised = new Set();
 
           attendees.forEach((a) => {
-            const id = a.userId ?? a.userGuid ?? a.avatar ?? a.userName;
+            // avatar bewusst nicht mehr als Identitaet: zwei Teilnehmende
+            // ohne eigenes Bild koennen dieselbe Avatar-URL haben und waeren
+            // sonst eine einzige Kachel.
+            const id = a.userId ?? a.userGuid ?? a.userName;
             if (isHandRaised(a)) {
               stillRaised.add(id);
+              cancelLeave(id);
               const muted = a.muted !== false;
               if (!raisedHands.has(id)) {
                 raisedHands.set(id, {
@@ -854,6 +1130,12 @@
     let lastSuccessfulPollAt = Date.now();
     let joinedAt = 0;
     let hasEverConnected = false;
+    let pollTimer = null;
+
+    function stopPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+    }
 
     function showConnectionWarning(text, { waiting = false } = {}) {
       connectionBannerEl.textContent = text;
@@ -947,26 +1229,68 @@
     // ---------------------------------------------------------------
     // Meeting SDK: Init & Join
     // ---------------------------------------------------------------
+    let starting = false;
+    let currentMeetingNumber = '';
+
     async function startBoard() {
-      const meetingNumber = document.getElementById('meetingNumber').value.replace(/\s/g, '');
+      // Doppelklick-Schutz: zwei parallele Joins wuerden auch zwei
+      // Polling-Intervalle anlegen.
+      if (starting) return;
+
+      const meetingNumber = document.getElementById('meetingNumber').value.replace(/\D/g, '');
       const password = document.getElementById('password').value;
       const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
 
-      if (!meetingNumber) {
-        alert('Bitte Meeting-Nummer eingeben.');
+      if (!/^\d{9,12}$/.test(meetingNumber)) {
+        toast('Meeting-Nummer eingeben (9 bis 12 Ziffern).', { error: true });
+        return;
+      }
+      if (typeof ZoomMtg === 'undefined') {
+        toast(
+          'Das Zoom-SDK konnte nicht geladen werden. Besteht eine Verbindung ' +
+          'zu source.zoom.us?',
+          { error: true, ms: 12000 }
+        );
         return;
       }
 
+      starting = true;
+      currentMeetingNumber = meetingNumber;
+      joinBtn.disabled = true;
+      joinBtn.textContent = 'Verbinde …';
+
+      try {
+        await joinMeeting({ meetingNumber, password, serverUrl });
+      } catch (err) {
+        // Ohne diesen Block scheitert z. B. ein Netzwerkfehler lautlos und
+        // der Knopf wirkt einfach kaputt.
+        console.error('Start fehlgeschlagen:', err);
+        toast('Start fehlgeschlagen: ' + (err && err.message ? err.message : err), {
+          error: true,
+          ms: 12000,
+        });
+        setupEl.style.display = '';
+        boardEl.classList.remove('active');
+      } finally {
+        starting = false;
+        joinBtn.disabled = false;
+        joinBtn.textContent = 'CueLight starten';
+      }
+    }
+
+    async function joinMeeting({ meetingNumber, password, serverUrl }) {
       // Signatur vom eigenen kleinen Server holen (siehe server.js)
       const res = await fetch(`${serverUrl}/api/signature`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ meetingNumber, role: 0 }),
+        body: JSON.stringify({ meetingNumber }),
       });
 
       if (!res.ok) {
-        alert('Konnte keine Signatur vom Server holen. Läuft server.js?');
-        return;
+        if (res.status === 401) {
+          throw new Error('Kein Zugriff auf den Server - fehlt der Zugriffsschluessel in der URL?');
+        }
+        throw new Error(`Server antwortet mit ${res.status} auf die Signatur-Anfrage.`);
       }
       const { signature } = await res.json();
 
@@ -977,30 +1301,19 @@
       );
       if (!obfRes.ok) {
         const body = await obfRes.json().catch(() => ({}));
+        console.error('OBF-Token-Fehler:', body);
         if (body.error === 'not_authorized') {
           const authUrl = `${serverUrl}/oauth/authorize`;
           const authWindow = window.open(authUrl, '_blank');
-          if (!authWindow) {
-            // Popup-Blocker hat's verhindert -> Link zum manuellen Öffnen
-            alert(
-              'Der Meeting-Host hat die App noch nicht freigegeben.\n\n' +
-              `Bitte einmalig ${authUrl} öffnen und mit dem ` +
-              'Zoom-Account einloggen, der das Meeting hostet.\n\n' +
-              '(Dein Browser hat das automatische Öffnen blockiert – ' +
-              'bitte Popups für diese Seite erlauben und erneut versuchen.)'
-            );
-          } else {
-            alert(
-              'Es hat sich ein neues Fenster geöffnet: Bitte dort mit dem ' +
-              'Zoom-Account einloggen, der das Meeting hostet, und danach ' +
-              '"CueLight starten" hier erneut klicken.'
-            );
-          }
-        } else {
-          alert('Konnte kein OBF-Token holen, siehe Konsole.');
+          throw new Error(
+            authWindow
+              ? 'Der Meeting-Host muss CueLight einmalig freigeben. Im neuen ' +
+                'Fenster mit dem Host-Konto anmelden, danach erneut starten.'
+              : `Der Meeting-Host muss CueLight einmalig unter ${authUrl} freigeben ` +
+                '(dein Browser hat das automatische Oeffnen blockiert).'
+          );
         }
-        console.error('OBF-Token-Fehler:', body);
-        return;
+        throw new Error('Der Server konnte kein Beitritts-Token von Zoom holen.');
       }
       const { obfToken } = await obfRes.json();
 
@@ -1061,16 +1374,27 @@
 
               // Zusätzliches Sicherheitsnetz: alle 3s neu abfragen,
               // falls ein Event mal nicht feuert (kommt in der Praxis vor).
-              setInterval(refreshFromAttendeeList, 3000);
+              // Handle merken, damit beim Verlassen sauber gestoppt wird.
+              stopPolling();
+              pollTimer = setInterval(refreshFromAttendeeList, 3000);
             },
             error: (err) => {
               console.error('Join-Fehler:', err);
-              alert('Beitritt fehlgeschlagen, siehe Konsole.');
+              toast(
+                'Beitritt fehlgeschlagen. Stimmen Meeting-Nummer und Passwort, ' +
+                'und gehoert das Meeting zum autorisierten Zoom-Konto?',
+                { error: true, ms: 12000 }
+              );
+              setupEl.style.display = '';
+              boardEl.classList.remove('active');
             },
           });
         },
         error: (err) => {
           console.error('Init-Fehler:', err);
+          toast('Das Zoom-SDK liess sich nicht initialisieren.', { error: true });
+          setupEl.style.display = '';
+          boardEl.classList.remove('active');
         },
       });
     }
@@ -1094,14 +1418,16 @@
     document.getElementById('copyLinkBtn').addEventListener('click', async () => {
       const linkEl = document.getElementById('bookmarkLink');
       if (!linkEl.value) {
-        alert('Erst Meeting-Nummer eingeben, dann Link generieren.');
+        toast('Erst die Meeting-Nummer eintragen.', { error: true });
         return;
       }
       try {
         await navigator.clipboard.writeText(linkEl.value);
+        toast('Link kopiert.');
       } catch (e) {
         linkEl.select();
         document.execCommand('copy');
+        toast('Link kopiert.');
       }
     });
 

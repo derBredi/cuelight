@@ -52,7 +52,9 @@ jobs:
           images: ghcr.io/${{ github.repository }}
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=latest
+            # "latest" nur für echte Releases - ein Tag wie v1.2.0-rc1
+            # soll nicht bei allen Nutzern automatisch mitgezogen werden.
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - name: Bauen und veröffentlichen (amd64 + arm64)
         uses: docker/build-push-action@v5

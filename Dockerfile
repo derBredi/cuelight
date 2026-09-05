@@ -1,20 +1,24 @@
 # Kleines, produktionsnahes Image
 FROM node:20-alpine
 
+# su-exec: winziges Tool, um beim Containerstart kontrolliert von root zu
+# einem unprivilegierten User zu wechseln (siehe entrypoint.sh).
+# Bewusst ganz oben: so bricht dieser Layer nicht bei jeder Code-Aenderung.
+RUN apk add --no-cache su-exec
+
+ENV NODE_ENV=production
+
 WORKDIR /app
 
-# Nur package.json zuerst kopieren, damit npm install gecacht wird,
-# solange sich der Code aendert aber die Abhaengigkeiten nicht
-COPY package.json ./
-RUN npm install --omit=dev
+# Erst die Manifeste, damit die Installation gecacht bleibt, solange sich
+# nur der Code aendert. "npm ci" statt "npm install": installiert exakt die
+# Versionen aus der package-lock.json, dadurch ist der Build reproduzierbar.
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
 
 # Restlichen Code kopieren
 COPY server.js ./
 COPY public ./public
-
-# su-exec: winziges Tool, um beim Containerstart kontrolliert von root zu
-# einem unprivilegierten User zu wechseln (siehe entrypoint.sh).
-RUN apk add --no-cache su-exec
 
 RUN mkdir -p /app/data
 COPY entrypoint.sh /entrypoint.sh
@@ -27,5 +31,8 @@ RUN chmod +x /entrypoint.sh
 ENTRYPOINT ["/entrypoint.sh"]
 
 EXPOSE 4000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+  CMD node -e "fetch('http://127.0.0.1:'+(process.env.PORT||4000)+'/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 CMD ["node", "server.js"]

@@ -62,9 +62,17 @@ eigenen Kontos beitritt (siehe "Bekannte Einschränkungen").
 ```bash
 mkdir cuelight && cd cuelight
 curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/docker-compose.yml
+curl -o .env https://raw.githubusercontent.com/derbredi/cuelight/main/.env.example
 mkdir -p data
-nano docker-compose.yml   # Zugangsdaten aus Schritt 1 eintragen
+nano .env                 # Zugangsdaten aus Schritt 1 eintragen
 docker compose up -d
+```
+
+Einen Zugriffsschlüssel erzeugst du am einfachsten so und trägst ihn als
+`CUELIGHT_ACCESS_TOKEN` in die `.env` ein:
+
+```bash
+openssl rand -base64 32
 ```
 
 Prüfen, ob es läuft:
@@ -73,9 +81,9 @@ docker compose logs -f
 ```
 Es sollte „Signature-Server laeuft auf http://localhost:4000" erscheinen.
 
-Der Container ist danach nur auf Port 4000 des Servers erreichbar - für
-den echten Einsatz muss davor noch ein Reverse-Proxy mit eigener Domain
-und Zugriffskontrolle (siehe „Zugriff absichern" weiter unten).
+Der Container lauscht danach nur auf `127.0.0.1:4000` - für den echten
+Einsatz gehört ein Reverse-Proxy mit eigener Domain davor (siehe
+„Zugriff absichern" weiter unten).
 
 **Eigene Anpassungen am Code?** Statt `image:` in der `docker-compose.yml`
 kannst du auch `build: .` eintragen und das Repo klonen
@@ -102,12 +110,21 @@ Lesezeichen-Link (startet direkt, ohne erneute Eingabe).
 
 ## Wichtig: Zugriff absichern, sobald es öffentlich erreichbar ist
 
-Sobald CueLight über eine echte Domain läuft, ist auch der
-`/api/signature`-Endpunkt aus dem Internet erreichbar - aktuell ganz ohne
-Login. Er verrät zwar keine Zugangsdaten, aber jeder, der die URL kennt und
-eine Meeting-Nummer errät, könnte sich damit einen gültigen Beitritts-Token
-erzeugen. **Stell den Dienst nie ohne eigene Zugriffskontrolle offen ins
-Internet.** Zwei Wege, je nachdem was du schon nutzt:
+Sobald CueLight über eine echte Domain läuft, sind auch seine Endpunkte
+aus dem Internet erreichbar. `/api/obf-token` gibt dabei ein Token
+heraus, das gegenüber Zoom **im Namen des freigebenden Hosts** wirkt, und
+über ein offenes `/oauth/authorize` könnte ein Fremder die gespeicherte
+Freigabe durch seine eigene ersetzen.
+
+**Erste Schicht: der eingebaute Zugriffsschlüssel.** Setz
+`CUELIGHT_ACCESS_TOKEN` in der `.env`. Danach beantwortet der Server keine
+einzige Anfrage mehr ohne diesen Schlüssel. Auf dem Bühnengerät einmalig
+`https://deine-domain.de/?k=DEIN_SCHLUESSEL` öffnen - der Server setzt
+daraufhin ein Cookie und entfernt den Schlüssel wieder aus der Adresszeile,
+damit er nicht in Verlauf oder Lesezeichen stehen bleibt.
+
+**Zweite Schicht: eine vorgelagerte Zugriffskontrolle.** Zwei Wege, je
+nachdem was du schon nutzt:
 
 - **Nutzt du bereits Cloudflare Tunnel:** Im Zero-Trust-Dashboard unter
   „Access → Applications" eine Application für die neue Subdomain anlegen,
@@ -127,11 +144,11 @@ nur, die App im Zielkonto neu anzulegen (Schritt 1 dieser README
 wiederholen, dann):
 
 1. Neue **Client ID** + **Client Secret** notieren.
-2. In der `docker-compose.yml` die vier Variablen
+2. In der `.env` die vier Variablen
    (`ZOOM_MEETING_SDK_KEY`, `ZOOM_MEETING_SDK_SECRET`,
    `ZOOM_OAUTH_CLIENT_ID`, `ZOOM_OAUTH_CLIENT_SECRET`) durch die neuen
    Werte ersetzen.
-3. Alte `zoom-oauth-tokens.json` im gebindeten Datenverzeichnis löschen
+3. Alte `zoom-oauth-tokens.json` im gebundenen Datenverzeichnis löschen
    (gehört zur alten App, ist nutzlos) und den Container neu starten.
 4. Einmal neu unter `/oauth/authorize` mit dem Meeting-Host-Account
    autorisieren.

@@ -1,3 +1,10 @@
 node_modules
 *.zip
 .git
+.github
+data
+.env
+.env.*
+assets
+README.md
+SECURITY.md
