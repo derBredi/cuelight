@@ -124,6 +124,17 @@
     line-height: 1.5;
   }
 
+  #compatWarning {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: rgba(220, 38, 38, 0.15);
+    border: 1px solid #dc2626;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text);
+  }
+
   #board {
     display: none;
     position: fixed;
@@ -143,6 +154,26 @@
     color: var(--muted);
     font-size: clamp(13px, 1.4vw, 16px);
     letter-spacing: 0.02em;
+  }
+
+  #meetingInfoBtn {
+    position: fixed;
+    top: 1.5vh;
+    right: 1.5vh;
+    z-index: 30;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--panel);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: 16px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #meetingInfoBtn:active {
+    filter: brightness(0.85);
   }
 
   /* Warnung bei Verbindungsproblemen: bewusst nicht zu uebersehen, da eine
@@ -397,6 +428,7 @@
     <input id="serverUrl" value="" />
 
     <button id="joinBtn">CueLight starten</button>
+    <p id="compatWarning" style="display:none;"></p>
 
     <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
     <input id="bookmarkLink" readonly />
@@ -406,6 +438,7 @@
   <div id="board">
     <div id="connectionBanner" style="display:none;"></div>
     <div id="hintBanner">💡 Auf eine Kachel tippen schaltet die Person frei</div>
+    <button id="meetingInfoBtn" title="Meeting-Infos">ⓘ</button>
     <div id="counter"></div>
     <button id="lowerAllBtn" style="display:none;">Alle Hände herunternehmen</button>
     <div id="empty-state">Aktuell meldet sich niemand</div>
@@ -440,6 +473,7 @@
     const debugEl = document.getElementById('debug');
     const setupEl = document.getElementById('setup');
     const lowerAllBtn = document.getElementById('lowerAllBtn');
+    const meetingInfoBtn = document.getElementById('meetingInfoBtn');
     const leaveBtn = document.getElementById('leaveBtn');
     const counterEl = document.getElementById('counter');
     const connectionBannerEl = document.getElementById('connectionBanner');
@@ -646,6 +680,30 @@
       });
     });
 
+    // Feldnamen sind laut Zoom-Forum nicht immer zuverlaessig befuellt -
+    // deshalb defensiv nur das anzeigen, was tatsaechlich da ist, und die
+    // Rohdaten immer zusaetzlich in die Konsole loggen.
+    meetingInfoBtn.addEventListener('click', () => {
+      ZoomMtg.getCurrentMeetingInfo({
+        success: (res) => {
+          log('Meeting-Info (roh):', res);
+          const info = (res && res.result) || res || {};
+          const lines = [];
+          if (info.meetingTopic) lines.push('Thema: ' + info.meetingTopic);
+          if (info.meetingNumber) lines.push('Meeting-Nummer: ' + info.meetingNumber);
+          if (info.meetingHostName) lines.push('Host: ' + info.meetingHostName);
+          if (lines.length === 0) {
+            lines.push('Keine Meeting-Infos verfügbar (siehe Konsole für Rohdaten).');
+          }
+          alert(lines.join('\n'));
+        },
+        error: (err) => {
+          log('getCurrentMeetingInfo fehlgeschlagen:', err);
+          alert('Meeting-Infos konnten nicht abgerufen werden (siehe Konsole).');
+        },
+      });
+    });
+
     setInterval(render, 1000); // aktualisiert die "seit Xs"-Anzeige
 
     // ---------------------------------------------------------------
@@ -771,6 +829,16 @@
       connectionBannerEl.style.display = 'none';
     }
 
+    function showCompatWarning(unSupportFeatures) {
+      const el = document.getElementById('compatWarning');
+      el.textContent =
+        '⚠ Dieser Browser/dieses Gerät unterstützt evtl. nicht alles, was ' +
+        'CueLight braucht (' + unSupportFeatures.join(', ') + '). ' +
+        'Falls der Beitritt gleich fehlschlägt, probier ein anderes Gerät ' +
+        'oder einen aktuelleren Browser.';
+      el.style.display = 'block';
+    }
+
     function handleMeetingStatus(data) {
       // status: 1=connecting, 2=connected, 3=disconnected, 4=reconnecting
       log('Meeting-Status:', data);
@@ -893,6 +961,22 @@
         patchJsMedia: true,
         isSupportAV: false, // CueLight braucht nie Kamera/Mikro, kein Berechtigungsdialog nötig
         success: () => {
+          // Fruehwarnung statt kryptischem Verbindungsabbruch: prueft, ob der
+          // aktuelle Browser/das Geraet ueberhaupt alle SDK-Features
+          // unterstuetzt (z.B. relevant bei alten Safari-Versionen ohne
+          // WebAssembly-SIMD, siehe README). Rein informativ, haelt den
+          // Beitrittsversuch nicht auf.
+          try {
+            const features = ZoomMtg.checkFeatureRequirements();
+            log('Feature-Check:', features);
+            if (features && features.unSupportFeatures && features.unSupportFeatures.length > 0) {
+              log('Nicht unterstuetzte Features:', features.unSupportFeatures);
+              showCompatWarning(features.unSupportFeatures);
+            }
+          } catch (err) {
+            log('checkFeatureRequirements fehlgeschlagen:', err);
+          }
+
           ZoomMtg.join({
             signature,
             meetingNumber,
