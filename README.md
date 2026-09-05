@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" width="160" alt="CueLight Logo" />
+</p>
+
 # CueLight für Zoom
 
 [![Docker-Image veröffentlichen](https://github.com/derbredi/cuelight/actions/workflows/publish.yml/badge.svg)](https://github.com/derbredi/cuelight/actions/workflows/publish.yml)
