@@ -107,9 +107,24 @@
     overflow: hidden;
   }
 
+  /* Eigener Scrollbereich: html/body sind auf overflow:hidden gesetzt
+     (sonst wackelt das Board beim Ueberziehen), dadurch kam man im
+     Querformat nicht mehr an die unteren Felder. */
   #setup {
+    position: fixed;
+    inset: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding:
+      calc(4vh + env(safe-area-inset-top))
+      calc(16px + env(safe-area-inset-right))
+      calc(4vh + env(safe-area-inset-bottom))
+      calc(16px + env(safe-area-inset-left));
+  }
+
+  #setupCard {
     max-width: 420px;
-    margin: 8vh auto;
+    margin: 0 auto;
     padding: 32px;
     background: var(--panel);
     border: 1px solid var(--line);
@@ -130,14 +145,14 @@
     flex-shrink: 0;
   }
 
-  #setup h1 {
+  #setupCard h1 {
     font-size: 22px;
     font-weight: 700;
     letter-spacing: -0.01em;
     margin: 0;
   }
 
-  #setup .lede {
+  #setupCard .cl-lede {
     margin: 0 0 22px;
     font-size: 13px;
     line-height: 1.5;
@@ -158,9 +173,9 @@
     line-height: 1.5;
   }
 
-  #authNeeded .hint { margin: 12px 0 0; }
+  #authNeeded .cl-hint { margin: 12px 0 0; }
 
-  .authbtn {
+  .cl-authbtn {
     display: block;
     padding: 14px;
     min-height: 48px;
@@ -174,25 +189,25 @@
     border-radius: var(--r-sm);
   }
 
-  #setup details {
+  #setupCard details {
     margin-top: 18px;
     font-size: 13px;
     color: var(--muted);
   }
 
-  #setup details summary {
+  #setupCard details summary {
     cursor: pointer;
     padding: 4px 0;
   }
 
-  #setup label {
+  #setupCard label {
     display: block;
     font-size: 13px;
     color: var(--muted);
     margin: 16px 0 6px;
   }
 
-  #setup input {
+  #setupCard input {
     width: 100%;
     padding: 12px;
     background: #000;
@@ -208,7 +223,7 @@
     font-variant-numeric: tabular-nums;
   }
 
-  #setup button {
+  #setupCard button {
     margin-top: 24px;
     width: 100%;
     min-height: 48px;
@@ -222,7 +237,7 @@
     cursor: pointer;
   }
 
-  #setup button[disabled] {
+  #setupCard button[disabled] {
     opacity: 0.55;
     cursor: default;
   }
@@ -235,7 +250,7 @@
     font-weight: 500;
   }
 
-  #setup .hint {
+  #setup .cl-hint {
     margin-top: 14px;
     font-size: 12px;
     color: var(--muted);
@@ -258,10 +273,16 @@
      Polsterung haelt seine Zeile frei - dadurch kann sich nichts mehr
      ueberlappen, ohne dass irgendwo Abstaende nachgepflegt werden
      muessen. */
+  /* Drei feste Zonen: Meldungen oben, Kacheln in der Mitte, Knopf unten.
+     Nur die Mitte scrollt. Damit KOENNEN sich die Zonen nicht mehr
+     ueberlagern - vorher klebten Meldungen und Fusszeile per sticky ueber
+     der Liste, und genau das ist bei sticky das erwartete Verhalten: der
+     Inhalt scrollt darunter durch. */
   #board {
     display: none;
     position: fixed;
     inset: 0;
+    flex-direction: column;
     padding:
       calc(1.5vh + 52px + env(safe-area-inset-top))
       calc(5vw + env(safe-area-inset-right))
@@ -269,30 +290,30 @@
       calc(5vw + env(safe-area-inset-left));
     background: var(--bg);
     z-index: 999999;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
+  }
+
+  #board.cl-active {
+    display: flex;
   }
 
   /* Bleibt beim Scrollen oben stehen: eine Verbindungsstoerung aendert die
      Bedeutung von allem darunter und darf nicht aus dem Bild wandern. */
   #notices {
-    position: sticky;
-    top: calc(1.5vh + 52px + env(safe-area-inset-top));
-    z-index: 20;
+    flex: none;
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  #notices > * {
     margin-bottom: 1.5vh;
-    background: var(--bg);
   }
 
   /* Gegenstueck unten: Ueberlauf-Zeile und der Knopf bleiben erreichbar,
      auch wenn die Liste laenger ist als der Bildschirm. */
   #boardFooter {
-    position: sticky;
-    bottom: calc(2vh + env(safe-area-inset-bottom));
-    z-index: 20;
-    background: var(--bg);
+    flex: none;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -307,7 +328,6 @@
     font-variant-numeric: tabular-nums;
   }
 
-  #board.active { display: block; }
 
   /* Warnung bei Verbindungsproblemen: bewusst nicht zu uebersehen, da eine
      stillstehende Anzeige sonst mit "niemand meldet sich" verwechselt
@@ -316,7 +336,7 @@
      im Formular wie auf dem Board. Die Bedeutung traegt der Balken links
      und das Symbol, nicht die Flaeche: gesaettigte Flaechen sind auf dem
      Board fuer Wortmeldungen reserviert. */
-  .notice {
+  .cl-notice {
     display: flex;
     align-items: stretch;
     overflow: hidden;
@@ -329,18 +349,18 @@
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
   }
 
-  .notice::before {
+  .cl-notice::before {
     content: "";
     flex: none;
     width: 5px;
     background: var(--zoom-blue);
   }
 
-  .notice > span {
+  .cl-notice > span {
     padding: 11px 14px;
   }
 
-  .notice.problem::before {
+  .cl-notice.cl-problem::before {
     background: #dc2626;
   }
 
@@ -351,11 +371,11 @@
 
   /* Neutraler Wartezustand (Warteraum / Meeting noch nicht gestartet) -
      bewusst nicht alarmierend wie ein echter Verbindungsabbruch. */
-  #connectionBanner.waiting {
+  #connectionBanner.cl-waiting {
     animation: none;
   }
 
-  #connectionBanner.waiting::before {
+  #connectionBanner.cl-waiting::before {
     background: var(--zoom-blue);
   }
 
@@ -417,7 +437,7 @@
   }
 
   /* Zweiter Tipp bestaetigt - kein blockierender confirm()-Dialog. */
-  #leaveBtn.confirming {
+  #leaveBtn.cl-confirming {
     background: #dc2626;
     color: #ffffff;
     border-color: #dc2626;
@@ -428,7 +448,7 @@
     font-weight: 700;
   }
 
-  #leaveBtn.confirming svg { display: none; }
+  #leaveBtn.cl-confirming svg { display: none; }
 
   #leaveBtn svg {
     width: 100%;
@@ -437,7 +457,7 @@
 
   #empty-state {
     flex: 1;
-    min-height: 60vh;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -449,7 +469,7 @@
     letter-spacing: 0.02em;
   }
 
-  #empty-state .sub {
+  #empty-state .cl-sub {
     white-space: pre-line;
     font-size: clamp(12px, 1.2vw, 15px);
     color: var(--line);
@@ -461,10 +481,30 @@
      Touch-Scrollen als eine vertikal zentrierte Liste, die nach beiden
      Seiten waechst. Kacheln behalten dabei immer ihre volle Groesse. */
   #list {
+    flex: 1;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 3vh;
-    padding-bottom: 2vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Im Querformat nebeneinander statt untereinander. Die Spaltenzahl
+     ergibt sich aus dem Inhalt: 420px ist die Breite, die ein laengerer
+     Name mit Symbol und Wartezeit braucht, ohne abgeschnitten zu werden.
+     auto-fit sorgt nebenbei dafuer, dass eine einzelne Meldung die volle
+     Breite bekommt statt ein halb leeres Raster.
+     Hochformat bleibt bewusst immer einspaltig - auch auf einem grossen
+     Tablet, wo die Breite fuer zwei Spalten reichen wuerde. */
+  @media (orientation: landscape) {
+    #list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+      grid-auto-rows: min-content;
+      gap: 2vh 2vw;
+      align-content: start;
+    }
   }
 
   /* Die Kachel ist bewusst eine kräftig gefüllte Fläche statt nur ein
@@ -472,7 +512,7 @@
      schneller erkennbar als ein dünner Akzentrand auf dunklem/hellem Grund.
      Sie ist ausserdem der Freischalt-Button: grosszuegige Trefferflaeche,
      keine Textauswahl/Blau-Markierung beim Tippen, dezentes Press-Feedback. */
-  .row {
+  .cl-row {
     display: flex;
     align-items: center;
     gap: 3vw;
@@ -492,12 +532,12 @@
   /* Das Blinken ist der Kern der ganzen Anwendung: es soll den Blick aus
      dem Augenwinkel holen, ohne dass jemand hinsehen muss. Deshalb
      pulsieren alle offenen Meldungen dauerhaft - nur bereits
-     drangewesene (.done) werden ruhig. */
-  .row {
+     drangewesene (.cl-done) werden ruhig. */
+  .cl-row {
     animation: pulse 1.1s ease-in-out infinite;
   }
 
-  .row:active {
+  .cl-row:active {
     filter: brightness(0.92);
   }
 
@@ -505,7 +545,7 @@
      Kachel verwendeten Custom Properties lokal auf Gruen um, die
      bestehende Puls-Animation (siehe @keyframes pulse) uebernimmt das
      automatisch, weil sie nur var(--flag...) referenziert. */
-  .row.unmuted {
+  .cl-row.cl-unmuted {
     --flag: var(--speak);
     --flag-flash: var(--speak-flash);
     --flag-dark: var(--speak-dark);
@@ -523,15 +563,15 @@
      frische Meldung. Hintergrund bewusst Richtung Seitenhintergrund
      verschoben (nicht nur transparent gemacht) - dadurch tritt die Kachel
      sichtbar zurueck, ohne komplett zu verschwinden. */
-  .row.done {
+  .cl-row.cl-done {
     animation: none;
     box-shadow: none;
     background: var(--panel);
     border-color: var(--line);
   }
-  .row.done .name,
-  .row.done .wait,
-  .row.done .mic {
+  .cl-row.cl-done .cl-name,
+  .cl-row.cl-done .cl-wait,
+  .cl-row.cl-done .cl-mic {
     color: var(--muted);
   }
 
@@ -539,29 +579,32 @@
      wird (siehe scheduleLeave in JS). Neue Kacheln erscheinen bewusst
      weiterhin hart/sofort - das plötzliche Auftauchen ist Teil des
      Aufmerksamkeits-Effekts, nur das Verschwinden soll ruhiger wirken. */
-  .row {
+  .cl-row {
     transition: opacity 0.4s ease, transform 0.4s ease;
   }
-  .row.leaving {
+  .cl-row.cl-leaving {
     animation: none !important;
     opacity: 0;
     transform: scale(0.94);
     pointer-events: none;
   }
 
-  .row .mic {
+  .cl-row .cl-mic {
     width: clamp(36px, 5vw, 60px);
     height: clamp(36px, 5vw, 60px);
     color: var(--flag-text);
     flex-shrink: 0;
   }
 
-  #board.can-unmute .row {
+  #board.cl-can-unmute .cl-row {
     cursor: pointer;
   }
 
-  .row .name {
-    font-size: clamp(28px, 5.5vw, 64px);
+  .cl-row .cl-name {
+    /* An der KLEINEREN Achse ausrichten: im Querformat ist die Hoehe
+       knapp, dort darf die Schrift nicht wachsen, nur weil die Breite
+       zunimmt. */
+    font-size: clamp(24px, min(5.5vw, 7vh), 64px);
     font-weight: 800;
     letter-spacing: -0.01em;
     color: var(--flag-text);
@@ -573,7 +616,7 @@
 
   /* Ziffernbreite fixiert, sonst zappelt die Zeile bei jedem
      Sekundenwechsel seitlich hin und her. */
-  .row .wait {
+  .cl-row .cl-wait {
     margin-left: auto;
     font-size: clamp(14px, 1.4vw, 18px);
     color: rgba(36, 26, 0, 0.65);
@@ -600,7 +643,10 @@
     }
   }
 
+  /* Nur mit ?debug=1 sichtbar - auf der Buehne hat eine Diagnosezeile
+     nichts verloren. */
   #debug {
+    display: none;
     position: fixed;
     bottom: 8px;
     left: 8px;
@@ -630,37 +676,38 @@
     pointer-events: none;
   }
 
-  .notice.fade {
+  .cl-notice.cl-fade {
     opacity: 0;
     transform: translateY(8px);
     transition: opacity 0.25s ease, transform 0.25s ease;
   }
 
-  .notice.fade.show { opacity: 1; transform: translateY(0); }
+  .cl-notice.cl-fade.cl-show { opacity: 1; transform: translateY(0); }
 
   /* Wer Bewegung reduziert haben will, bekommt statt des Pulsierens einen
      ruhigen, dauerhaft leuchtenden Rahmen - die Meldung bleibt genauso gut
      erkennbar, nur ohne Bewegung. */
   @media (prefers-reduced-motion: reduce) {
-    .row {
+    .cl-row {
       animation: none;
       outline: 4px solid var(--flag-flash);
       outline-offset: 3px;
     }
-    .row.done { outline: none; }
+    .cl-row.cl-done { outline: none; }
     #connectionBanner { animation: none; }
-    .row { transition: none; }
+    .cl-row { transition: none; }
   }
 </style>
 </head>
 <body>
 
   <div id="setup">
+   <div id="setupCard">
     <div id="setupHead">
       <img src="/icons/icon-192.png" alt="" />
       <h1>CueLight</h1>
     </div>
-    <p class="lede">
+    <p class="cl-lede">
       Zeigt Wortmeldungen aus einem Zoom-Meeting gross an. Meeting-Nummer
       eintragen, starten - CueLight tritt still als Teilnehmer bei.
     </p>
@@ -683,10 +730,10 @@
         Noch kein Zoom-Konto freigegeben. Das ist einmalig nötig, damit
         CueLight Meetings beitreten darf.
       </p>
-      <a id="authLink" class="authbtn" target="_blank" rel="noopener">
+      <a id="authLink" class="cl-authbtn" target="_blank" rel="noopener">
         Jetzt bei Zoom freigeben
       </a>
-      <p class="hint">
+      <p class="cl-hint">
         Mit dem Konto anmelden, das die Meetings hostet. Danach hierher
         zurück und „CueLight starten".
       </p>
@@ -698,7 +745,7 @@
       <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
       <input id="bookmarkLink" readonly />
       <button id="copyLinkBtn" type="button">Link kopieren</button>
-      <p class="hint">
+      <p class="cl-hint">
         Achtung: Der Link enthaelt das Meeting-Passwort im Klartext und landet
         so auch im Browser-Verlauf. Nur auf Geraeten speichern, die du selbst
         kontrollierst.
@@ -706,11 +753,12 @@
 
       <label for="serverUrl">Signature-Server-URL</label>
       <input id="serverUrl" value="" />
-      <p class="hint">
+      <p class="cl-hint">
         Ist normalerweise schon richtig ausgefuellt. Nur aendern, wenn der
         Server unter einer anderen Adresse laeuft als diese Seite.
       </p>
     </details>
+   </div>
   </div>
 
   <div id="board">
@@ -725,12 +773,12 @@
     <!-- Alles Bewegliche in einer Spalte: oben Meldungen, dann die
          Kacheln, unten der Knopf. -->
     <div id="notices" aria-live="polite">
-      <div id="connectionBanner" class="notice problem" style="display:none;"><span></span></div>
+      <div id="connectionBanner" class="cl-notice cl-problem" style="display:none;"><span></span></div>
     </div>
 
     <div id="empty-state">
       <div>Aktuell meldet sich niemand</div>
-      <div class="sub" id="emptySub"></div>
+      <div class="cl-sub" id="emptySub"></div>
     </div>
 
     <div id="list" style="display:none;"></div>
@@ -779,6 +827,11 @@
     const emptySubEl = document.getElementById('emptySub');
     const joinBtn = document.getElementById('joinBtn');
 
+    // ?debug=1 blendet die Diagnosezeile ein und schaltet die ausfuehrliche
+    // Protokollierung frei. Ohne das schreibt CueLight bei einer zweistuendigen
+    // Veranstaltung sonst gut 2400 Rohdatensaetze in die Konsole.
+    const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+
     function log(...args) {
       console.log('[CueLight]', ...args);
     }
@@ -808,7 +861,7 @@
     // Baut eine Meldung in der einen Bauform, die es dafuer gibt.
     function buildNotice(text, { problem = false } = {}) {
       const el = document.createElement('div');
-      el.className = 'notice' + (problem ? ' problem' : '');
+      el.className = 'cl-notice' + (problem ? ' cl-problem' : '');
       const span = document.createElement('span');
       span.textContent = text;
       el.appendChild(span);
@@ -821,12 +874,12 @@
     // Einrichtungsformular unten - dort gibt es keine Spalte.
     function toast(text, { error = false, ms = 6000 } = {}) {
       const el = buildNotice(text, { problem: error });
-      el.classList.add('fade');
-      const target = boardEl.classList.contains('active') ? noticesEl : toastsEl;
+      el.classList.add('cl-fade');
+      const target = boardEl.classList.contains('cl-active') ? noticesEl : toastsEl;
       target.appendChild(el);
-      requestAnimationFrame(() => el.classList.add('show'));
+      requestAnimationFrame(() => el.classList.add('cl-show'));
       setTimeout(() => {
-        el.classList.remove('show');
+        el.classList.remove('cl-show');
         setTimeout(() => el.remove(), 300);
       }, ms);
     }
@@ -885,10 +938,10 @@
       // fertig spielen kann, bevor auf "niemand meldet sich" umgeschaltet wird.
       // Kacheln nur antippbar machen, wenn das Antippen auch etwas bewirken
       // kann - sonst laeuft jede Beruehrung in eine Fehlermeldung.
-      boardEl.classList.toggle('can-unmute', isHostOrCoHost);
+      boardEl.classList.toggle('cl-can-unmute', isHostOrCoHost);
 
       if (raisedHands.size === 0) {
-        emptyEl.style.display = 'flex';
+        emptyEl.style.display = '';
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
         overflowEl.style.display = 'none';
@@ -896,7 +949,10 @@
       }
 
       emptyEl.style.display = 'none';
-      listEl.style.display = 'flex';
+      // Bewusst leerer String statt 'flex': eine Inline-Zuweisung wuerde die
+      // Media-Query fuers Querformat ueberstimmen, und das Zwei-Spalten-
+      // Raster wuerde nie greifen. So entscheidet das Stylesheet.
+      listEl.style.display = '';
       // Genau wie der Bedienhinweis nur zeigen, wenn die Funktion ueberhaupt
       // etwas bewirken kann - der Knopf braucht dieselben Host-/Co-Host-
       // Rechte wie das Entstummen einzelner Kacheln.
@@ -952,7 +1008,7 @@
       const limit = footerEl.getBoundingClientRect().top;
       let hidden = 0;
       for (const el of listEl.children) {
-        if (el.classList.contains('leaving')) continue;
+        if (el.classList.contains('cl-leaving')) continue;
         if (el.getBoundingClientRect().top >= limit - 8) hidden += 1;
       }
       overflowEl.textContent = hidden > 0 ? `+ ${hidden} weitere` : '';
@@ -977,11 +1033,11 @@
 
     function buildRowElement() {
       const div = document.createElement('div');
-      div.className = 'row';
+      div.className = 'cl-row';
       div.innerHTML = `
-        <div class="mic"></div>
-        <div class="name"></div>
-        <div class="wait"></div>
+        <div class="cl-mic"></div>
+        <div class="cl-name"></div>
+        <div class="cl-wait"></div>
       `;
       return div;
     }
@@ -991,21 +1047,21 @@
       // Icon nur bei echter Aenderung neu setzen: sonst wird jede Sekunde
       // fuer jede Kachel SVG neu geparst.
       if (el._muted !== info.muted) {
-        el.querySelector('.mic').innerHTML = info.muted ? MIC_OFF_SVG : MIC_ON_SVG;
+        el.querySelector('.cl-mic').innerHTML = info.muted ? MIC_OFF_SVG : MIC_ON_SVG;
         el._muted = info.muted;
       }
-      el.querySelector('.name').textContent = info.name;
-      el.querySelector('.wait').textContent = `seit ${seconds}s`;
+      el.querySelector('.cl-name').textContent = info.name;
+      el.querySelector('.cl-wait').textContent = `seit ${seconds}s`;
       if (typeof info.userId === 'number') {
         el.dataset.userId = info.userId;
       } else {
         delete el.dataset.userId;
       }
-      el.classList.toggle('unmuted', !info.muted);
+      el.classList.toggle('cl-unmuted', !info.muted);
       // "done": war schon mal frei geschaltet, ist aber wieder stumm und hat
       // die Hand noch nicht gesenkt - soll nicht mehr blinkend um
       // Aufmerksamkeit buhlen wie eine frische Meldung.
-      el.classList.toggle('done', info.muted && Boolean(info.hasSpoken));
+      el.classList.toggle('cl-done', info.muted && Boolean(info.hasSpoken));
     }
 
     // Faehrt eine Kachel weich aus, statt sie hart zu entfernen. Wird
@@ -1022,7 +1078,7 @@
       // Klasse erst im naechsten Frame setzen, nicht im selben Tick wie das
       // Markieren als "leaving" - sonst hat der Browser keinen Vorher-Zustand
       // zum Uebergang von animieren (die Transition wuerde nicht sichtbar).
-      requestAnimationFrame(() => el.classList.add('leaving'));
+      requestAnimationFrame(() => el.classList.add('cl-leaving'));
       info.leaveTimer = setTimeout(() => {
         el.remove();
         rowElements.delete(id);
@@ -1044,7 +1100,7 @@
       info.leaving = false;
       info.leaveTimer = null;
       const el = rowElements.get(id);
-      if (el) el.classList.remove('leaving');
+      if (el) el.classList.remove('cl-leaving');
     }
 
     // Ganze Kachel antippen -> Person entstummen. Braucht Host- oder
@@ -1054,7 +1110,7 @@
     let lastMuteCallAt = 0;
 
     listEl.addEventListener('click', (e) => {
-      const row = e.target.closest('.row');
+      const row = e.target.closest('.cl-row');
       if (!row) return;
       // Ohne Host- oder Co-Host-Rechte kann CueLight niemanden freischalten -
       // dann bleibt das Antippen wirkungslos statt eine Fehlermeldung zu
@@ -1118,10 +1174,10 @@
     let leaveArmed = null;
     leaveBtn.addEventListener('click', () => {
       if (!leaveArmed) {
-        leaveBtn.classList.add('confirming');
+        leaveBtn.classList.add('cl-confirming');
         leaveBtn.textContent = 'Wirklich verlassen?';
         leaveArmed = setTimeout(() => {
-          leaveBtn.classList.remove('confirming');
+          leaveBtn.classList.remove('cl-confirming');
           leaveBtn.innerHTML = LEAVE_ICON_SVG;
           leaveArmed = null;
         }, 4000);
@@ -1215,8 +1271,10 @@
           const selfAttendee = attendees.find((a) => a.self);
           isHostOrCoHost = Boolean(selfAttendee && (selfAttendee.isHost || selfAttendee.isCoHost));
 
-          debugEl.textContent = `Teilnehmer: ${attendees.length} | Rohdaten siehe Konsole (F12)`;
-          log('Aktuelle Teilnehmerliste (roh):', res);
+          if (DEBUG) {
+            debugEl.textContent = `Teilnehmer: ${attendees.length} | Rohdaten siehe Konsole (F12)`;
+            log('Aktuelle Teilnehmerliste (roh):', res);
+          }
 
           const stillRaised = new Set();
 
@@ -1282,7 +1340,7 @@
       }
     }
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && boardEl.classList.contains('active')) {
+      if (document.visibilityState === 'visible' && boardEl.classList.contains('cl-active')) {
         requestWakeLock();
       }
     });
@@ -1315,7 +1373,7 @@
 
     function showConnectionWarning(text, { waiting = false } = {}) {
       connectionTextEl.textContent = text;
-      connectionBannerEl.classList.toggle('waiting', waiting);
+      connectionBannerEl.classList.toggle('cl-waiting', waiting);
       connectionBannerEl.style.display = 'flex';
     }
     function hideConnectionWarning() {
@@ -1339,7 +1397,7 @@
       if (relevant.length === 0) return;
       const el = document.getElementById('compatWarning');
       el.textContent =
-        '⚠ Diesem Browser fehlt etwas, das CueLight braucht (' +
+        'Diesem Browser fehlt etwas, das CueLight braucht (' +
         relevant.join(', ') + '). Bitte ein anderes Gerät oder einen ' +
         'aktuelleren Browser probieren.';
       el.style.display = 'block';
@@ -1387,12 +1445,12 @@
           const secondsSinceJoin = (Date.now() - joinedAt) / 1000;
           if (secondsSinceJoin < 60) {
             showConnectionWarning(
-              '⏳ Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
+              'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
               { waiting: true }
             );
           } else {
             showConnectionWarning(
-              '⏳ Warte weiterhin auf Beitritt … Dauert das ungewöhnlich lange, ' +
+              'Warte weiterhin auf Beitritt … Dauert das ungewöhnlich lange, ' +
               'gehört das Meeting evtl. zu einem anderen Zoom-Konto als dem, ' +
               'für das CueLight autorisiert ist - dann hilft eine neue ' +
               'Autorisierung unter /oauth/authorize.',
@@ -1401,12 +1459,12 @@
           }
         } else {
           // War schon mal verbunden, jetzt weg - das ist ein echter Abbruch.
-          showConnectionWarning('⚠ Verbindung getrennt');
+          showConnectionWarning('Verbindung getrennt');
         }
         return;
       }
 
-      if (data.status === 4) showConnectionWarning('⚠ Verbindung wird wiederhergestellt …');
+      if (data.status === 4) showConnectionWarning('Verbindung wird wiederhergestellt …');
     }
 
     setInterval(() => {
@@ -1416,7 +1474,7 @@
       if (!hasEverConnected) return;
       const staleSeconds = Math.round((Date.now() - lastSuccessfulPollAt) / 1000);
       if (staleSeconds > 15 && connectionBannerEl.style.display === 'none') {
-        showConnectionWarning(`⚠ Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);
+        showConnectionWarning(`Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);
       }
     }, 5000);
 
@@ -1425,8 +1483,8 @@
     // Person als die, die spaeter auf der Buehne bedient), sondern bei
     // der ERSTEN Meldung dieses Meetings - genau der Moment, in dem die
     // Tipp-Funktion relevant wird. Einmal pro Meeting (In-Memory-Flag,
-    // setzt sich bei jedem neuen Beitritt automatisch zurueck). Blendet
-    // sich nach ein paar Sekunden von selbst wieder aus.
+    // setzt sich bei jedem neuen Beitritt automatisch zurueck) und bleibt
+    // stehen, bis das erste Mal tatsaechlich eine Kachel angetippt wird.
     // ---------------------------------------------------------------
     let hintShownThisMeeting = false;
     let hintEl = null;
@@ -1438,16 +1496,16 @@
       // wuerde der Hinweis verpasst, wenn in den ersten Sekunden niemand
       // aufs Geraet schaut.
       hintEl = buildNotice('Auf eine Kachel tippen schaltet die Person frei');
-      hintEl.classList.add('fade');
+      hintEl.classList.add('cl-fade');
       noticesEl.appendChild(hintEl);
-      requestAnimationFrame(() => hintEl.classList.add('show'));
+      requestAnimationFrame(() => hintEl.classList.add('cl-show'));
     }
 
     function hideHint() {
       if (!hintEl) return;
       const el = hintEl;
       hintEl = null;
-      el.classList.remove('show');
+      el.classList.remove('cl-show');
       setTimeout(() => el.remove(), 300);
     }
 
@@ -1496,7 +1554,7 @@
           ms: 12000,
         });
         setupEl.style.display = '';
-        boardEl.classList.remove('active');
+        boardEl.classList.remove('cl-active');
       } finally {
         starting = false;
         joinBtn.disabled = false;
@@ -1542,7 +1600,7 @@
       const { obfToken } = await obfRes.json();
 
       setupEl.style.display = 'none';
-      boardEl.classList.add('active');
+      boardEl.classList.add('cl-active');
 
       hideZoomChrome();
       ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
@@ -1619,7 +1677,7 @@
                 { error: true, ms: 15000 }
               );
               setupEl.style.display = '';
-              boardEl.classList.remove('active');
+              boardEl.classList.remove('cl-active');
             },
           });
         },
@@ -1627,7 +1685,7 @@
           console.error('Init-Fehler:', err);
           toast('Das Zoom-SDK liess sich nicht initialisieren.', { error: true });
           setupEl.style.display = '';
-          boardEl.classList.remove('active');
+          boardEl.classList.remove('cl-active');
         },
       });
     }

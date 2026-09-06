@@ -130,9 +130,12 @@ async function fetchWithTimeout(url, options = {}, ms = 8000) {
 // Sehr einfaches Mengenlimit pro IP - reicht, um Durchprobieren von
 // Meeting-Nummern unattraktiv zu machen.
 const rateBuckets = new Map();
-function rateLimit({ max, windowMs }) {
+function rateLimit({ max, windowMs, name }) {
   return (req, res, next) => {
-    const key = req.ip || 'unknown';
+    // Getrennter Zaehler je Route: mit einem gemeinsamen Zaehler pro IP
+    // haetten normale Board-Anfragen die Anmeldeseite mitblockiert - man
+    // koennte sich also durch blosse Nutzung selbst aussperren.
+    const key = `${name}|${req.ip || 'unknown'}`;
     const now = Date.now();
     const bucket = rateBuckets.get(key);
     if (!bucket || now > bucket.resetAt) {
@@ -140,6 +143,12 @@ function rateLimit({ max, windowMs }) {
       return next();
     }
     if (bucket.count >= max) {
+      if ((req.get('accept') || '').includes('text/html')) {
+        return res
+          .status(429)
+          .type('text/plain; charset=utf-8')
+          .send('Zu viele Versuche. Bitte eine Minute warten.');
+      }
       return res.status(429).json({ error: 'rate_limited' });
     }
     bucket.count += 1;
@@ -238,7 +247,7 @@ app.get('/unlock', (req, res) => {
 app.post(
   '/unlock',
   express.urlencoded({ extended: false, limit: '2kb' }),
-  rateLimit({ max: 10, windowMs: 60_000 }),
+  rateLimit({ name: 'unlock', max: 10, windowMs: 60_000 }),
   (req, res) => {
     if (!ACCESS_TOKEN) return res.redirect('/');
     const key = String((req.body && req.body.key) || '').trim();
@@ -520,7 +529,7 @@ app.get('/oauth/status', (req, res) => {
 // Achtung: gibt ein Token heraus, das gegenueber Zoom im Namen des
 // autorisierten Hosts wirkt - deshalb liegt der Endpunkt hinter dem
 // Zugriffsschluessel oben und hinter einem Mengenlimit.
-app.get('/api/obf-token', rateLimit({ max: 30, windowMs: 60_000 }), async (req, res) => {
+app.get('/api/obf-token', rateLimit({ name: 'obf', max: 30, windowMs: 60_000 }), async (req, res) => {
   try {
     const accessToken = await getValidAccessToken();
     if (!accessToken) {
@@ -556,7 +565,7 @@ app.get('/api/obf-token', rateLimit({ max: 30, windowMs: 60_000 }), async (req, 
 // Die Rolle ist bewusst fest auf 0 (Teilnehmer) verdrahtet: CueLight hoert
 // nur zu. Host-Rechte im Meeting bekommt es ggf. per Co-Host-Vergabe durch
 // den Host, nicht ueber die Signatur.
-app.post('/api/signature', rateLimit({ max: 30, windowMs: 60_000 }), (req, res) => {
+app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_000 }), (req, res) => {
   const { meetingNumber } = req.body || {};
 
   if (!/^\d{9,12}$/.test(String(meetingNumber || ''))) {

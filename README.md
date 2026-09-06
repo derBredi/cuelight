@@ -29,10 +29,11 @@ kein Zugriff auf den Rechner, der das Meeting hostet, nötig.
 Zooms eigene Dokumentation ist an dieser Stelle uneinheitlich: Manche
 Entwickler berichten, dass die Teilnehmerliste (`getAttendeeslist`) ein klares
 Feld für "Hand gehoben" enthält, andere melden, dass es fehlt. CueLight prüft
-deshalb mehrere bekannte Feldnamen und **loggt zusätzlich jedes rohe
-Teilnehmer-Objekt in die Browser-Konsole (F12)**. Mach vor dem eigentlichen
+deshalb mehrere bekannte Feldnamen und kann zusätzlich jedes rohe
+Teilnehmer-Objekt in die Browser-Konsole schreiben: dafür die Seite einmal
+mit `?debug=1` am Ende der Adresse öffnen. Mach vor dem eigentlichen
 Bühneneinsatz unbedingt einen Testlauf mit zwei Personen (eine hebt die Hand),
-schau in die Konsole und prüfe, ob und unter welchem Feldnamen sich der
+schau in die Konsole (F12) und prüfe, ob und unter welchem Feldnamen sich der
 Zustand ändert. Falls keins der geprüften Felder anschlägt, öffne ein Issue
 mit dem, was in der Konsole für das Objekt auftaucht - dann lässt sich
 `isHandRaised()` in `public/index.html` entsprechend anpassen.
@@ -91,9 +92,16 @@ Auf dem Gerät, das später die Bühnenanzeige zeigt (Tablet, Laptop, …),
 `http://IP-DES-SERVERS:4000` bzw. die eigene Domain öffnen.
 Meeting-Nummer eingeben, „CueLight starten" - fertig. Beim ersten Mal
 schickt dich CueLight einmal zu Zoom, damit der Meeting-Host die App
-freigibt; das gilt danach dauerhaft. Für den schnellen Wiedereinstieg
-lohnt sich der generierte Lesezeichen-Link (startet direkt, ohne erneute
-Eingabe).
+freigibt; das gilt danach dauerhaft.
+
+Meeting-Nummer und Passwort merkt sich CueLight danach auf dem Gerät. Legst
+du die Seite als Web-App auf den Startbildschirm, tritt sie beim Antippen
+direkt wieder bei - bis du einmal bewusst auf „Verlassen" tippst, dann
+bleibt sie im Formular stehen, bis du selbst wieder startest.
+
+Auf dem Board tippst du eine Kachel an, um die Person freizuschalten; das
+setzt Host- oder Co-Host-Rechte für CueLight im Meeting voraus. Quer
+liegende Bildschirme zeigen die Meldungen automatisch in mehreren Spalten.
 
 ## Laufender Betrieb
 
