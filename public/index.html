@@ -520,7 +520,8 @@
     background: var(--flag);
     border: 1px solid var(--flag-dark);
     border-radius: var(--r-lg);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    /* Konstanter Schein statt animiertem - siehe @keyframes pulse. */
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 22px 0 var(--flag-glow);
     /* Antippen bewirkt nur mit Host- oder Co-Host-Rechten etwas. Ohne sie
        ist das Board reine Anzeige - dann soll es sich auch nicht
        anfassbar anfuehlen und keine Fehlermeldung provozieren. */
@@ -628,18 +629,23 @@
      Bewegung und Helligkeitswechsel fallen im Augenwinkel am stärksten auf.
      Tempo bewusst bei ca. 0.9 Wechseln/Sekunde gehalten (< 3 Hz), damit das
      Blinken nicht unangenehm oder problematisch schnell wird. */
+  /* Das Blinken wechselt nur noch die Farbe - keine Groessenaenderung, kein
+     animierter Schein. Zwei Gruende:
+     1. Beides zusammen schiebt die Kachel auf eine eigene
+        Kompositionsebene, und iOS rastert den weichen Schein dann in ein
+        Rechteck dieser Ebene - sichtbar als Kasten mit scharfen Ecken
+        unter der Kachel.
+     2. Ein reiner Farbwechsel ist keine Bewegung. Dadurch muss er unter
+        "reduzierte Bewegung" auch nicht abgeschaltet werden, sondern nur
+        verlangsamt - und das Blinken ist nun mal die Kernfunktion. */
   @keyframes pulse {
     0%, 100% {
       background: var(--flag);
       border-color: var(--flag-dark);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 0 0 var(--flag-glow);
-      transform: scale(1);
     }
     50% {
       background: var(--flag-flash);
       border-color: var(--flag);
-      box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 55px 12px var(--flag-glow);
-      transform: scale(1.02);
     }
   }
 
@@ -688,12 +694,11 @@
      ruhigen, dauerhaft leuchtenden Rahmen - die Meldung bleibt genauso gut
      erkennbar, nur ohne Bewegung. */
   @media (prefers-reduced-motion: reduce) {
+    /* Nicht abschalten, sondern beruhigen: der Farbwechsel bewegt nichts,
+       und ohne ihn verliert die Anzeige ihren Sinn. */
     .cl-row {
-      animation: none;
-      outline: 4px solid var(--flag-flash);
-      outline-offset: 3px;
+      animation-duration: 2.6s;
     }
-    .cl-row.cl-done { outline: none; }
     #connectionBanner { animation: none; }
     .cl-row { transition: none; }
   }
