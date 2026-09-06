@@ -443,13 +443,11 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Es pulsiert, was NEU dazugekommen ist - nicht dauerhaft alles.
-     Aus dem Augenwinkel nimmt man Veraenderung wahr, nicht Dauerzustand:
-     ein Dauerblinken aller Kacheln wird nach zwanzig Sekunden zur Tapete,
-     waehrend eine frisch anfangende Bewegung zuverlaessig den Blick holt.
-     Die grosse orange Flaeche traegt danach die Sichtbarkeit von allein.
-     Keine Rangordnung: wer drankommt, entscheidet der Leiter. */
-  .row.fresh {
+  /* Das Blinken ist der Kern der ganzen Anwendung: es soll den Blick aus
+     dem Augenwinkel holen, ohne dass jemand hinsehen muss. Deshalb
+     pulsieren alle offenen Meldungen dauerhaft - nur bereits
+     drangewesene (.done) werden ruhig. */
+  .row {
     animation: pulse 1.1s ease-in-out infinite;
   }
 
@@ -600,11 +598,12 @@
      einen ruhigen, dauerhaft leuchtenden Rahmen - die Information
      "diese Kachel ist die naechste" bleibt erhalten. */
   @media (prefers-reduced-motion: reduce) {
-    .row.fresh {
+    .row {
       animation: none;
       outline: 4px solid var(--flag-flash);
       outline-offset: 3px;
     }
+    .row.done { outline: none; }
     #connectionBanner { animation: none; }
     .row { transition: none; }
   }
@@ -780,15 +779,18 @@
     let lastOrderKey = ''; // welche Reihenfolge steht gerade im DOM?
 
     function render() {
-      // Feste Reihenfolge nach Meldezeitpunkt, laengste Wartezeit oben -
-      // und sonst nichts. Frueher sind Kacheln nach oben gesprungen, sobald
-      // sich der Mikrofon-Status aenderte. Wenn der Leiter frei auswaehlt,
-      // ist so ein Sprung gefaehrlich: die Kachel wandert genau in dem
-      // Moment weg, in dem der Finger schon unterwegs ist, und es wird die
-      // falsche Person freigeschaltet. Position = wann gemeldet, fertig.
+      // Reihenfolge: wer gerade spricht (offenes Mikro) nach oben, wer
+      // schon dran war nach unten, alle uebrigen dazwischen nach
+      // Meldezeitpunkt. Wen der Leiter aufruft, bleibt seine Entscheidung -
+      // die Sortierung sagt nur, was gerade passiert.
       const activeEntries = [...raisedHands.entries()]
         .filter(([, info]) => !info.leaving)
-        .sort((a, b) => a[1].since - b[1].since);
+        .sort((a, b) => {
+          const priority = (info) => (!info.muted ? 0 : info.hasSpoken ? 2 : 1);
+          const prioDiff = priority(a[1]) - priority(b[1]);
+          if (prioDiff !== 0) return prioDiff;
+          return a[1].since - b[1].since;
+        });
 
       counterEl.textContent = `${totalAttendees} im Meeting · ${activeEntries.length} Meldung${activeEntries.length === 1 ? '' : 'en'}`;
       emptySubEl.textContent = currentMeetingNumber
@@ -813,14 +815,25 @@
       lowerAllBtn.style.display = (activeEntries.length > 0 && isHostOrCoHost) ? 'block' : 'none';
       if (activeEntries.length > 0) maybeShowHint();
 
-      // WICHTIG: nur umsortieren, wenn sich die Reihenfolge wirklich
-      // geaendert hat. appendChild auf ein bereits vorhandenes Kind ist ein
-      // Entfernen-und-Wiedereinfuegen, und das setzt laufende CSS-Animationen
-      // zurueck - vorher wurde der Puls dadurch jede Sekunde neu gestartet
-      // und kam nie sauber durch.
+      // Nur umsortieren, wenn sich die Reihenfolge wirklich geaendert hat.
+      // appendChild auf ein bereits vorhandenes Kind ist ein Entfernen-und-
+      // Wiedereinfuegen, und das setzt laufende CSS-Animationen zurueck -
+      // sonst wuerde der Puls jede Sekunde neu starten und nie durchlaufen.
+      //
+      // Und zwei Faelle, in denen JETZT gerade nicht umsortiert wird:
+      //
+      // a) Solange eine Kachel ausblendet, steht sie noch im DOM, waehrend
+      //    sie schon aus activeEntries gefiltert ist. Ein Umsortieren haengt
+      //    die verbliebenen Kacheln dann per appendChild HINTER die
+      //    ausblendende - genau der beobachtete Sprung: die obere Kachel
+      //    rutscht kurz auf Platz zwei und danach wieder zurueck.
+      // b) Kurz nach einem Fingertipp. Sonst wandert eine Kachel weg,
+      //    waehrend der Finger schon unterwegs zur naechsten ist.
+      const anyLeaving = [...raisedHands.values()].some((info) => info.leaving);
+      const justTapped = Date.now() - lastMuteCallAt < 1500;
       const orderKey = activeEntries.map(([id]) => id).join('|');
-      const reorder = orderKey !== lastOrderKey;
-      lastOrderKey = orderKey;
+      const reorder = orderKey !== lastOrderKey && !anyLeaving && !justTapped;
+      if (reorder) lastOrderKey = orderKey;
 
       activeEntries.forEach(([id, info], index) => {
         let el = rowElements.get(id);
@@ -852,11 +865,6 @@
       return div;
     }
 
-    // Wie lange eine neue Meldung um Aufmerksamkeit wirbt, bevor sie in den
-    // ruhigen Zustand uebergeht. Kuerzer = weniger Unruhe, laenger = mehr
-    // Chance, dass ein Blick sie im bewegten Zustand erwischt.
-    const NEW_HIGHLIGHT_MS = 15000;
-
     function updateRowElement(el, info, index) {
       const seconds = Math.max(0, Math.round((Date.now() - info.since) / 1000));
       // Icon nur bei echter Aenderung neu setzen: sonst wird jede Sekunde
@@ -867,9 +875,6 @@
       }
       el.querySelector('.name').textContent = info.name;
       el.querySelector('.wait').textContent = `seit ${seconds}s`;
-      // Frisch gemeldet = pulsiert, danach ruhig (siehe CSS). render()
-      // laeuft jede Sekunde, die Klasse faellt also von selbst wieder weg.
-      el.classList.toggle('fresh', Date.now() - info.since < NEW_HIGHLIGHT_MS);
       if (typeof info.userId === 'number') {
         el.dataset.userId = info.userId;
       } else {
