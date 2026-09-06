@@ -58,6 +58,21 @@
     overflow: hidden;
   }
 
+  /* Das Zoom-SDK schreibt beim Laden eigene INLINE-Styles auf <html> und
+     <body> - unter anderem eine weisse Hintergrundfarbe, min-width: 1100px,
+     eine eigene Schrift und Textfarbe. Inline-Styles schlagen jede normale
+     Regel, deshalb hier ausnahmsweise !important. Ohne das blieb in der
+     iOS-Web-App unten ein weisser Streifen stehen: der Bereich unterhalb
+     des sicheren Bereichs zeigt den body-Hintergrund, und der war ab dem
+     Beitritt Zooms Weiss. Im Safari faellt es nicht auf, weil dort die
+     Browserleiste genau diesen Streifen verdeckt. */
+  html, body {
+    background-color: var(--bg) !important;
+    color: var(--text) !important;
+    min-width: 0 !important;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif !important;
+  }
+
   /* Zooms Client-View-API rendert ihre komplette Meeting-Oberfläche in ein
      eigenes Element #zmmtg-root direkt in den body - das wollen wir
      unsichtbar halten, wir brauchen nur die Teilnehmer-Daten, nicht das UI.
@@ -253,6 +268,9 @@
 
   #counter {
     text-align: center;
+    /* Wie beim Verbindungs-Banner: Platz fuer die beiden runden Knoepfe
+       oben rechts freihalten. */
+    margin-right: 104px;
     margin-bottom: 1.5vh;
     color: var(--muted);
     font-size: clamp(15px, 1.7vw, 20px);
@@ -1032,6 +1050,11 @@
       clearTimeout(leaveArmed);
       leaveArmed = null;
       stopPolling();
+      try {
+        localStorage.setItem(PAUSED_KEY, '1');
+      } catch {
+        /* egal */
+      }
       // Mit ?setup=1, damit nach dem Verlassen das Formular erscheint und
       // nicht sofort wieder automatisch beigetreten wird.
       const leaveUrl = window.location.origin + window.location.pathname + '?setup=1';
@@ -1586,10 +1609,14 @@
     // sich CueLight Nummer und Passwort selbst. Nebeneffekt: das Passwort
     // steht nicht mehr zwingend in einer URL, die im Verlauf landet.
     const STORE_KEY = 'cuelight:last-meeting';
+    const PAUSED_KEY = 'cuelight:paused';
 
     function rememberMeeting(meetingNumber, password) {
       try {
         localStorage.setItem(STORE_KEY, JSON.stringify({ meetingNumber, password }));
+        // Von Hand gestartet - damit ist die Pause aufgehoben und die
+        // Web-App darf beim naechsten Oeffnen wieder direkt beitreten.
+        localStorage.removeItem(PAUSED_KEY);
       } catch (err) {
         log('Konnte Meeting nicht merken:', err);
       }
@@ -1611,9 +1638,19 @@
     const params = new URLSearchParams(window.location.search);
     const linkedMeeting = params.get('meeting');
     const remembered = loadRememberedMeeting();
-    // ?setup=1 haelt bewusst im Formular an - so kommt man in der Web-App
-    // wieder an ein anderes Meeting heran (der Verlassen-Knopf nutzt das).
-    const wantsSetup = params.get('setup') === '1';
+    // Verlassen heisst verlassen: nach einem Tipp auf den Verlassen-Knopf
+    // bleibt CueLight im Formular stehen - beim naechsten Oeffnen, beim
+    // uebernaechsten, bis wieder von Hand gestartet wird. Der Merker haelt
+    // deshalb dauerhaft und laeuft nicht ab. Der ?setup=1-Parameter allein
+    // reicht dafuer nicht: in der iOS-Web-App kommt er beim Neuladen durch
+    // das SDK nicht zuverlaessig an.
+    let paused = false;
+    try {
+      paused = localStorage.getItem(PAUSED_KEY) === '1';
+    } catch {
+      /* localStorage nicht verfuegbar - dann eben nicht */
+    }
+    const wantsSetup = params.get('setup') === '1' || paused;
 
     if (linkedMeeting) {
       document.getElementById('meetingNumber').value = linkedMeeting;
@@ -1628,6 +1665,7 @@
       // Symbol. Im normalen Browser-Tab nur vorausfuellen, damit man dort
       // noch etwas aendern kann, bevor es losgeht.
       if (isStandalone && !wantsSetup) startBoard();
+      else if (wantsSetup) log('Verlassen - kein automatischer Beitritt bis zum naechsten Start von Hand.');
     }
   </script>
 </body>
