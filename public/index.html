@@ -34,11 +34,21 @@
     --speak-text: #062012;
     --speak-glow: rgba(34, 197, 94, 0.75);
 
+    /* Meldungsflaeche: hell, damit der Text darauf in der
+       Hintergrundfarbe stehen kann (rund 14:1 Kontrast). Gesaettigte
+       Vollflaechen bleiben den Kacheln vorbehalten - dort bedeuten sie
+       etwas. */
+    --notice-bg: #f2f3f5;
+
     /* Ein einziger Radius-Satz statt pro Element neu erfunden:
        klein = Eingaben/Buttons, gross = Kacheln. */
     --r-sm: 6px;
     --r-lg: 12px;
     --focus: #9ec7ff;
+
+    /* Einmal definiert, ueberall verwendet - vorher stand die Schrift an
+       drei Stellen ausgeschrieben. */
+    --font: -apple-system, "Segoe UI", Roboto, sans-serif;
   }
 
   /* Sichtbarer Tastatur-Fokus - vorher gab es gar keinen. */
@@ -49,28 +59,22 @@
 
   * { box-sizing: border-box; }
 
-  html, body {
-    margin: 0;
-    height: 100%;
-    background: var(--bg);
-    color: var(--text);
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    overflow: hidden;
-  }
-
   /* Das Zoom-SDK schreibt beim Laden eigene INLINE-Styles auf <html> und
      <body> - unter anderem eine weisse Hintergrundfarbe, min-width: 1100px,
      eine eigene Schrift und Textfarbe. Inline-Styles schlagen jede normale
-     Regel, deshalb hier ausnahmsweise !important. Ohne das blieb in der
+     Regel, deshalb hier ausnahmsweise !important. Ohne das bleibt in der
      iOS-Web-App unten ein weisser Streifen stehen: der Bereich unterhalb
-     des sicheren Bereichs zeigt den body-Hintergrund, und der war ab dem
+     des sicheren Bereichs zeigt den body-Hintergrund, und der waere ab dem
      Beitritt Zooms Weiss. Im Safari faellt es nicht auf, weil dort die
      Browserleiste genau diesen Streifen verdeckt. */
   html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
     background-color: var(--bg) !important;
     color: var(--text) !important;
     min-width: 0 !important;
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif !important;
+    font-family: var(--font) !important;
   }
 
   /* Zooms Client-View-API rendert ihre komplette Meeting-Oberfläche in ein
@@ -249,14 +253,19 @@
     color: var(--text);
   }
 
+  /* Alles Dynamische liegt in genau einer Spalte: Hinweise, Kacheln,
+     Knopf. Oben rechts bleibt nur der Verlassen-Knopf, und die obere
+     Polsterung haelt seine Zeile frei - dadurch kann sich nichts mehr
+     ueberlappen, ohne dass irgendwo Abstaende nachgepflegt werden
+     muessen. */
   #board {
     display: none;
     position: fixed;
     inset: 0;
     padding:
-      calc(4vh + env(safe-area-inset-top))
+      calc(1.5vh + 52px + env(safe-area-inset-top))
       calc(5vw + env(safe-area-inset-right))
-      calc(4vh + env(safe-area-inset-bottom))
+      calc(2vh + env(safe-area-inset-bottom))
       calc(5vw + env(safe-area-inset-left));
     background: var(--bg);
     z-index: 999999;
@@ -264,73 +273,90 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  #board.active { display: block; }
-
-  #counter {
-    text-align: center;
-    /* Wie beim Verbindungs-Banner: Platz fuer die beiden runden Knoepfe
-       oben rechts freihalten. */
-    margin-right: 104px;
+  /* Bleibt beim Scrollen oben stehen: eine Verbindungsstoerung aendert die
+     Bedeutung von allem darunter und darf nicht aus dem Bild wandern. */
+  #notices {
+    position: sticky;
+    top: calc(1.5vh + 52px + env(safe-area-inset-top));
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin-bottom: 1.5vh;
+    background: var(--bg);
+  }
+
+  /* Gegenstueck unten: Ueberlauf-Zeile und der Knopf bleiben erreichbar,
+     auch wenn die Liste laenger ist als der Bildschirm. */
+  #boardFooter {
+    position: sticky;
+    bottom: calc(2vh + env(safe-area-inset-bottom));
+    z-index: 20;
+    background: var(--bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding-top: 1.2vh;
+  }
+
+  #overflowHint {
+    display: none;
     color: var(--muted);
-    font-size: clamp(15px, 1.7vw, 20px);
-    letter-spacing: 0.02em;
+    font-size: clamp(12px, 1.3vw, 15px);
     font-variant-numeric: tabular-nums;
   }
 
-  /* 44px ist die kleinste Flaeche, die sich im Halbdunkel neben der
-     Buehne noch zuverlaessig treffen laesst - vorher 32px. */
-  #meetingInfoBtn {
-    position: fixed;
-    top: calc(1.5vh + env(safe-area-inset-top));
-    right: calc(1.5vh + env(safe-area-inset-right));
-    z-index: 30;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--panel);
-    color: var(--muted);
-    border: 1px solid var(--line);
-    font-size: 18px;
-    cursor: pointer;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  #meetingInfoBtn:active {
-    filter: brightness(0.85);
-  }
+  #board.active { display: block; }
 
   /* Warnung bei Verbindungsproblemen: bewusst nicht zu uebersehen, da eine
      stillstehende Anzeige sonst mit "niemand meldet sich" verwechselt
      werden kann - genau der gefaehrliche Fall auf der Buehne. */
-  #connectionBanner {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: none;
-    text-align: center;
-    padding: 1.2vh 3vw;
-    /* Platz fuer die beiden runden Knoepfe oben rechts freihalten -
-       sonst verschwindet das Ende des Textes darunter. */
-    margin-right: 104px;
-    margin-bottom: 1.5vh;
+  /* EINE Form fuer alle Meldungen - Hinweis, Fehler, Verbindungsstoerung,
+     im Formular wie auf dem Board. Die Bedeutung traegt der Balken links
+     und das Symbol, nicht die Flaeche: gesaettigte Flaechen sind auf dem
+     Board fuer Wortmeldungen reserviert. */
+  .notice {
+    display: flex;
+    align-items: stretch;
+    overflow: hidden;
+    border-radius: var(--r-lg);
+    background: var(--notice-bg);
+    color: var(--bg);
+    font-size: clamp(13px, 1.5vw, 17px);
+    font-weight: 600;
+    line-height: 1.4;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+  }
+
+  .notice::before {
+    content: "";
+    flex: none;
+    width: 5px;
+    background: var(--zoom-blue);
+  }
+
+  .notice > span {
+    padding: 11px 14px;
+  }
+
+  .notice.problem::before {
     background: #dc2626;
-    color: #ffffff;
-    font-weight: 700;
-    font-size: clamp(14px, 1.6vw, 18px);
-    border-radius: 6px;
+  }
+
+  #connectionBanner {
+    display: none;
     animation: connectionPulse 1s ease-in-out infinite;
   }
 
   /* Neutraler Wartezustand (Warteraum / Meeting noch nicht gestartet) -
      bewusst nicht alarmierend wie ein echter Verbindungsabbruch. */
   #connectionBanner.waiting {
-    background: var(--zoom-blue);
     animation: none;
-    font-weight: 600;
+  }
+
+  #connectionBanner.waiting::before {
+    background: var(--zoom-blue);
   }
 
   @keyframes connectionPulse {
@@ -338,35 +364,23 @@
     50% { opacity: 0.6; }
   }
 
-  /* Dezenter Bedienhinweis fuer seltene Nutzer, blendet sich von selbst
-     wieder aus (siehe hintTimer in JS) - kein Klick noetig, damit er bei
-     haeufiger Nutzung nicht nervt. */
-  /* Der Bedienhinweis sitzt jetzt unten bei den Meldungen statt oben.
-     Oben ist der Platz knapp: dort liegen die beiden Knoepfe, das
-     Verbindungs-Banner und der Zaehler. Unten ist ohnehin nichts, und ein
-     Hinweis ist nichts, wofuer man den wichtigsten Bereich raeumt. */
-  .toast.hint {
-    background: var(--zoom-blue);
-    border-color: var(--zoom-blue);
-    font-weight: 600;
-    text-align: center;
-  }
-
+  /* Bedienelement, keine Meldung - deshalb dieselbe ruhige Sprache wie der
+     Verlassen-Knopf oben rechts und kein Blau, das mit den Kacheln um
+     Aufmerksamkeit konkurriert. Steht unter der letzten Kachel und klebt
+     beim Scrollen am unteren Rand (siehe #boardFooter). */
   #lowerAllBtn {
-    position: sticky;
-    top: 0;
-    z-index: 10;
-    display: block;
-    margin: 0 auto 2vh;
-    padding: 1.6vh 4vw;
-    background: var(--zoom-blue);
-    color: #ffffff;
-    border: none;
+    display: none;
+    min-height: 44px;
+    padding: 11px 20px;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--line);
     border-radius: 999px;
-    font-size: clamp(15px, 1.8vw, 19px);
-    font-weight: 700;
+    font-family: var(--font);
+    font-size: clamp(14px, 1.6vw, 18px);
+    font-weight: 600;
     cursor: pointer;
-    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
     -webkit-tap-highlight-color: transparent;
   }
 
@@ -374,13 +388,15 @@
     filter: brightness(0.9);
   }
 
-  /* Dezent unten fixiert, immer erreichbar unabhaengig vom Scroll-Stand
-     der Liste. Bewusst unauffaellig (kein Signalfarbe) - ist eine seltene,
-     ueberlegte Aktion, keine, zu der man staendig hingezogen werden soll. */
+  /* Oben rechts fixiert, als einziges Element in dieser Zeile. Bewusst
+     unauffaellig (keine Signalfarbe) - eine seltene, ueberlegte Aktion,
+     keine, zu der man hingezogen werden soll. 44px ist die kleinste
+     Flaeche, die sich im Halbdunkel neben der Buehne noch zuverlaessig
+     treffen laesst. */
   #leaveBtn {
     position: fixed;
     top: calc(1.5vh + env(safe-area-inset-top));
-    right: calc(1.5vh + env(safe-area-inset-right) + 54px);
+    right: calc(1.5vh + env(safe-area-inset-right));
     z-index: 30;
     width: 44px;
     height: 44px;
@@ -420,7 +436,8 @@
   }
 
   #empty-state {
-    height: 80vh;
+    flex: 1;
+    min-height: 60vh;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -433,6 +450,7 @@
   }
 
   #empty-state .sub {
+    white-space: pre-line;
     font-size: clamp(12px, 1.2vw, 15px);
     color: var(--line);
     font-variant-numeric: tabular-nums;
@@ -463,7 +481,10 @@
     border: 1px solid var(--flag-dark);
     border-radius: var(--r-lg);
     box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    cursor: pointer;
+    /* Antippen bewirkt nur mit Host- oder Co-Host-Rechten etwas. Ohne sie
+       ist das Board reine Anzeige - dann soll es sich auch nicht
+       anfassbar anfuehlen und keine Fehlermeldung provozieren. */
+    cursor: default;
     user-select: none;
     -webkit-tap-highlight-color: transparent;
   }
@@ -535,6 +556,10 @@
     flex-shrink: 0;
   }
 
+  #board.can-unmute .row {
+    cursor: pointer;
+  }
+
   .row .name {
     font-size: clamp(28px, 5.5vw, 64px);
     font-weight: 800;
@@ -581,12 +606,16 @@
     left: 8px;
     font-size: 11px;
     color: var(--muted);
-    font-family: ui-monospace, monospace;
+    font-family: var(--font-mono, ui-monospace, monospace);
   }
 
   /* Meldungen ohne alert(): ein alert() blockiert den JS-Thread, damit
      steht waehrenddessen auch die Aktualisierung der Anzeige still -
      ausgerechnet im Moment, in dem gerade etwas schiefgegangen ist. */
+  /* Nur noch fuer das Einrichtungsformular: dort gibt es keine Spalte, in
+     die eine Meldung einsortiert werden koennte. Auf dem Board landen
+     Meldungen stattdessen oben in #notices, damit alles Bewegliche an
+     einer Stelle liegt. */
   #toasts {
     position: fixed;
     left: 50%;
@@ -596,32 +625,22 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    align-items: center;
+    align-items: stretch;
     width: min(92vw, 640px);
     pointer-events: none;
   }
 
-  .toast {
-    width: 100%;
-    padding: 14px 18px;
-    border-radius: var(--r-sm);
-    background: var(--panel);
-    border: 1px solid var(--line);
-    color: var(--text);
-    font-size: clamp(14px, 1.5vw, 18px);
-    line-height: 1.4;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  .notice.fade {
     opacity: 0;
     transform: translateY(8px);
     transition: opacity 0.25s ease, transform 0.25s ease;
   }
 
-  .toast.show { opacity: 1; transform: translateY(0); }
-  .toast.error { border-color: #dc2626; background: #3a1414; }
+  .notice.fade.show { opacity: 1; transform: translateY(0); }
 
-  /* Wer Bewegung reduziert haben will, bekommt statt des Pulsierens
-     einen ruhigen, dauerhaft leuchtenden Rahmen - die Information
-     "diese Kachel ist die naechste" bleibt erhalten. */
+  /* Wer Bewegung reduziert haben will, bekommt statt des Pulsierens einen
+     ruhigen, dauerhaft leuchtenden Rahmen - die Meldung bleibt genauso gut
+     erkennbar, nur ohne Bewegung. */
   @media (prefers-reduced-motion: reduce) {
     .row {
       animation: none;
@@ -695,8 +714,6 @@
   </div>
 
   <div id="board">
-    <div id="connectionBanner" style="display:none;"></div>
-    <button id="meetingInfoBtn" title="Meeting-Infos">ⓘ</button>
     <button id="leaveBtn" title="Meeting verlassen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
            stroke-linecap="round" stroke-linejoin="round">
@@ -705,13 +722,23 @@
         <line x1="21" y1="12" x2="9" y2="12"/>
       </svg>
     </button>
-    <div id="counter"></div>
-    <button id="lowerAllBtn" style="display:none;">Alle Hände herunternehmen</button>
+    <!-- Alles Bewegliche in einer Spalte: oben Meldungen, dann die
+         Kacheln, unten der Knopf. -->
+    <div id="notices" aria-live="polite">
+      <div id="connectionBanner" class="notice problem" style="display:none;"><span></span></div>
+    </div>
+
     <div id="empty-state">
       <div>Aktuell meldet sich niemand</div>
       <div class="sub" id="emptySub"></div>
     </div>
+
     <div id="list" style="display:none;"></div>
+
+    <div id="boardFooter">
+      <div id="overflowHint"></div>
+      <button id="lowerAllBtn">Alle Hände herunternehmen</button>
+    </div>
   </div>
 
   <div id="toasts" aria-live="polite"></div>
@@ -742,10 +769,12 @@
     const debugEl = document.getElementById('debug');
     const setupEl = document.getElementById('setup');
     const lowerAllBtn = document.getElementById('lowerAllBtn');
-    const meetingInfoBtn = document.getElementById('meetingInfoBtn');
     const leaveBtn = document.getElementById('leaveBtn');
-    const counterEl = document.getElementById('counter');
+    const noticesEl = document.getElementById('notices');
+    const overflowEl = document.getElementById('overflowHint');
+    const footerEl = document.getElementById('boardFooter');
     const connectionBannerEl = document.getElementById('connectionBanner');
+    const connectionTextEl = connectionBannerEl.querySelector('span');
     const toastsEl = document.getElementById('toasts');
     const emptySubEl = document.getElementById('emptySub');
     const joinBtn = document.getElementById('joinBtn');
@@ -776,13 +805,25 @@
 
     new MutationObserver(hideZoomChrome).observe(document.body, { childList: true });
 
+    // Baut eine Meldung in der einen Bauform, die es dafuer gibt.
+    function buildNotice(text, { problem = false } = {}) {
+      const el = document.createElement('div');
+      el.className = 'notice' + (problem ? ' problem' : '');
+      const span = document.createElement('span');
+      span.textContent = text;
+      el.appendChild(span);
+      return el;
+    }
+
     // Ersatz fuer alert(): blockiert den JS-Thread nicht, verdeckt die
     // Anzeige nicht dauerhaft und braucht kein Wegklicken auf der Buehne.
+    // Auf dem Board erscheint die Meldung oben in der Spalte, im
+    // Einrichtungsformular unten - dort gibt es keine Spalte.
     function toast(text, { error = false, ms = 6000 } = {}) {
-      const el = document.createElement('div');
-      el.className = 'toast' + (error ? ' error' : '');
-      el.textContent = text;
-      toastsEl.appendChild(el);
+      const el = buildNotice(text, { problem: error });
+      el.classList.add('fade');
+      const target = boardEl.classList.contains('active') ? noticesEl : toastsEl;
+      target.appendChild(el);
       requestAnimationFrame(() => el.classList.add('show'));
       setTimeout(() => {
         el.classList.remove('show');
@@ -837,25 +878,27 @@
           return a[1].since - b[1].since;
         });
 
-      counterEl.textContent = `${totalAttendees} im Meeting · ${activeEntries.length} Meldung${activeEntries.length === 1 ? '' : 'en'}`;
-      emptySubEl.textContent = currentMeetingNumber
-        ? `Meeting ${currentMeetingNumber} · ${totalAttendees} Teilnehmende`
-        : '';
+      renderEmptySub();
 
       // raisedHands.size (nicht activeEntries.length!) entscheidet ueber
       // Leer-Zustand, damit eine gerade ausblendende Kachel ihre Animation
       // fertig spielen kann, bevor auf "niemand meldet sich" umgeschaltet wird.
+      // Kacheln nur antippbar machen, wenn das Antippen auch etwas bewirken
+      // kann - sonst laeuft jede Beruehrung in eine Fehlermeldung.
+      boardEl.classList.toggle('can-unmute', isHostOrCoHost);
+
       if (raisedHands.size === 0) {
         emptyEl.style.display = 'flex';
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
+        overflowEl.style.display = 'none';
         return;
       }
 
       emptyEl.style.display = 'none';
       listEl.style.display = 'flex';
-      // Genau wie der Hinweis-Banner nur zeigen, wenn die Funktion ueberhaupt
-      // etwas bewirken kann - der Button braucht dieselben Host-/Co-Host-
+      // Genau wie der Bedienhinweis nur zeigen, wenn die Funktion ueberhaupt
+      // etwas bewirken kann - der Knopf braucht dieselben Host-/Co-Host-
       // Rechte wie das Entstummen einzelner Kacheln.
       lowerAllBtn.style.display = (activeEntries.length > 0 && isHostOrCoHost) ? 'block' : 'none';
       if (activeEntries.length > 0) maybeShowHint();
@@ -880,14 +923,14 @@
       const reorder = orderKey !== lastOrderKey && !anyLeaving && !justTapped;
       if (reorder) lastOrderKey = orderKey;
 
-      activeEntries.forEach(([id, info], index) => {
+      activeEntries.forEach(([id, info]) => {
         let el = rowElements.get(id);
         if (!el) {
           el = buildRowElement();
           rowElements.set(id, el);
           listEl.appendChild(el); // hart einblenden: sofort volle Deckkraft, keine Animation
         }
-        updateRowElement(el, info, index);
+        updateRowElement(el, info);
         if (reorder && el.parentNode === listEl) {
           listEl.appendChild(el); // an die neue sortierte Position schieben
         } else if (el.parentNode !== listEl) {
@@ -897,6 +940,39 @@
       // Ausblendende Kacheln bleiben bewusst unangetastet an ihrer aktuellen
       // Position liegen (siehe scheduleLeave) - werden erst nach Ablauf der
       // CSS-Transition entfernt.
+
+      updateOverflowHint();
+    }
+
+    // Die Kacheln SIND die Anzahl - ein Zaehler daneben wiederholt nur, was
+    // man sieht. Eine Zahl hilft genau dann, wenn mehr Meldungen da sind als
+    // auf den Bildschirm passen: dann weiss man sonst nicht, ob unten noch
+    // zwei oder noch sieben warten.
+    function updateOverflowHint() {
+      const limit = footerEl.getBoundingClientRect().top;
+      let hidden = 0;
+      for (const el of listEl.children) {
+        if (el.classList.contains('leaving')) continue;
+        if (el.getBoundingClientRect().top >= limit - 8) hidden += 1;
+      }
+      overflowEl.textContent = hidden > 0 ? `+ ${hidden} weitere` : '';
+      overflowEl.style.display = hidden > 0 ? 'block' : 'none';
+    }
+
+    // Meeting-Angaben stehen in der Mitte, solange sich niemand meldet -
+    // damit braucht es keinen eigenen Info-Knopf mehr, der dieselben Daten
+    // noch einmal als Meldung eingeblendet haette.
+    let meetingTopic = '';
+
+    function renderEmptySub() {
+      if (!currentMeetingNumber) {
+        emptySubEl.textContent = '';
+        return;
+      }
+      const head = meetingTopic
+        ? `Meeting ${currentMeetingNumber} · ${meetingTopic}`
+        : `Meeting ${currentMeetingNumber}`;
+      emptySubEl.textContent = `${head}\n${totalAttendees} Teilnehmende`;
     }
 
     function buildRowElement() {
@@ -910,7 +986,7 @@
       return div;
     }
 
-    function updateRowElement(el, info, index) {
+    function updateRowElement(el, info) {
       const seconds = Math.max(0, Math.round((Date.now() - info.since) / 1000));
       // Icon nur bei echter Aenderung neu setzen: sonst wird jede Sekunde
       // fuer jede Kachel SVG neu geparst.
@@ -980,6 +1056,10 @@
     listEl.addEventListener('click', (e) => {
       const row = e.target.closest('.row');
       if (!row) return;
+      // Ohne Host- oder Co-Host-Rechte kann CueLight niemanden freischalten -
+      // dann bleibt das Antippen wirkungslos statt eine Fehlermeldung zu
+      // erzeugen, die der Bedienende nicht aendern kann.
+      if (!isHostOrCoHost) return;
       const userId = row.dataset.userId;
       if (!userId) {
         log('Kein userId auf dieser Kachel, kann nicht entstummen.');
@@ -1071,26 +1151,20 @@
     // Feldnamen sind laut Zoom-Forum nicht immer zuverlaessig befuellt -
     // deshalb defensiv nur das anzeigen, was tatsaechlich da ist, und die
     // Rohdaten immer zusaetzlich in die Konsole loggen.
-    meetingInfoBtn.addEventListener('click', () => {
+    // Einmal nach dem Beitritt holen und merken - angezeigt wird es im
+    // Leerzustand in der Mitte.
+    function fetchMeetingTopic() {
       ZoomMtg.getCurrentMeetingInfo({
         success: (res) => {
-          log('Meeting-Info (roh):', res);
           const info = (res && res.result) || res || {};
-          const lines = [];
-          if (info.meetingTopic) lines.push('Thema: ' + info.meetingTopic);
-          if (info.meetingNumber) lines.push('Meeting-Nummer: ' + info.meetingNumber);
-          if (info.meetingHostName) lines.push('Host: ' + info.meetingHostName);
-          if (lines.length === 0) {
-            lines.push('Keine Meeting-Infos verfügbar (Rohdaten siehe Konsole).');
+          if (info.meetingTopic) {
+            meetingTopic = info.meetingTopic;
+            renderEmptySub();
           }
-          toast(lines.join(' · '), { ms: 10000 });
         },
-        error: (err) => {
-          log('getCurrentMeetingInfo fehlgeschlagen:', err);
-          toast('Meeting-Infos nicht abrufbar.', { error: true });
-        },
+        error: (err) => log('getCurrentMeetingInfo fehlgeschlagen:', err),
       });
-    });
+    }
 
     setInterval(render, 1000); // aktualisiert die "seit Xs"-Anzeige
 
@@ -1240,9 +1314,9 @@
     }
 
     function showConnectionWarning(text, { waiting = false } = {}) {
-      connectionBannerEl.textContent = text;
+      connectionTextEl.textContent = text;
       connectionBannerEl.classList.toggle('waiting', waiting);
-      connectionBannerEl.style.display = 'block';
+      connectionBannerEl.style.display = 'flex';
     }
     function hideConnectionWarning() {
       connectionBannerEl.style.display = 'none';
@@ -1363,10 +1437,9 @@
       // Bleibt stehen, bis tatsaechlich eine Kachel angetippt wird - sonst
       // wuerde der Hinweis verpasst, wenn in den ersten Sekunden niemand
       // aufs Geraet schaut.
-      hintEl = document.createElement('div');
-      hintEl.className = 'toast hint';
-      hintEl.textContent = '💡 Auf eine Kachel tippen schaltet die Person frei';
-      toastsEl.appendChild(hintEl);
+      hintEl = buildNotice('Auf eine Kachel tippen schaltet die Person frei');
+      hintEl.classList.add('fade');
+      noticesEl.appendChild(hintEl);
       requestAnimationFrame(() => hintEl.classList.add('show'));
     }
 
@@ -1506,6 +1579,7 @@
             success: () => {
               log('Beigetreten. Warte auf Teilnehmer-Events …');
               hideZoomChrome();
+              fetchMeetingTopic();
               joinedAt = Date.now();
               lastSuccessfulPollAt = Date.now();
               requestWakeLock();
