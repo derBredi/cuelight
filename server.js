@@ -62,9 +62,13 @@ function isSecure(req) {
 // eine eigene Zugriffskontrolle davor haengt (z. B. Cloudflare Access).
 const ACCESS_TOKEN = process.env.CUELIGHT_PASSWORD || process.env.CUELIGHT_ACCESS_TOKEN || '';
 
-// Notausgang, falls die Content-Security-Policy mit einer kuenftigen
-// SDK-Version kollidiert: CUELIGHT_DISABLE_CSP=1 setzen.
-const DISABLE_CSP = process.env.CUELIGHT_DISABLE_CSP === '1';
+// Content-Security-Policy: standardmaessig AUS. Sie kann das Zoom-SDK
+// blockieren (WebAssembly, Worker, Medien-Verbindungen zu wechselnden
+// Zoom-Hosts), und ein Schutzmechanismus, der die Anzeige mitten in einer
+// Veranstaltung lahmlegt, richtet mehr Schaden an, als er verhindert.
+// Wer sie will, setzt CUELIGHT_ENABLE_CSP=1 und testet einmal einen
+// kompletten Beitritt damit.
+const ENABLE_CSP = process.env.CUELIGHT_ENABLE_CSP === '1';
 
 if (!CLIENT_ID || !CLIENT_SECRET) {
   console.warn(
@@ -159,7 +163,7 @@ app.use((req, res, next) => {
   if (isSecure(req)) {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
-  if (!DISABLE_CSP) {
+  if (ENABLE_CSP) {
     // 'unsafe-inline'/'unsafe-eval' sind noetig: die App ist ein einzelnes
     // HTML mit Inline-Skript, und das Zoom-SDK laedt WebAssembly nach.
     res.setHeader(
@@ -168,10 +172,14 @@ app.use((req, res, next) => {
         "default-src 'self'",
         "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://source.zoom.us",
         "style-src 'self' 'unsafe-inline'",
-        "img-src 'self' data: blob: https://*.zoom.us",
+        "img-src 'self' data: blob: https:",
+        "media-src 'self' blob: mediastream: https://*.zoom.us",
+        "frame-src 'self' blob:",
         "font-src 'self' data:",
         "connect-src 'self' https://*.zoom.us wss://*.zoom.us",
-        "worker-src 'self' blob:",
+        // Das Zoom-SDK laedt seine Web Worker direkt von source.zoom.us -
+        // fehlt der Eintrag hier, schlaegt der Beitritt fehl.
+        "worker-src 'self' blob: https://source.zoom.us",
         "frame-ancestors 'none'",
         "base-uri 'none'",
       ].join('; ')

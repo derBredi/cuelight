@@ -113,6 +113,36 @@
     color: var(--muted);
   }
 
+  #authNeeded {
+    margin-top: 20px;
+    padding: 16px;
+    border: 1px solid var(--zoom-blue);
+    border-radius: var(--r-sm);
+    background: rgba(45, 140, 255, 0.1);
+  }
+
+  #authNeeded p {
+    margin: 0 0 12px;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  #authNeeded .hint { margin: 12px 0 0; }
+
+  .authbtn {
+    display: block;
+    padding: 14px;
+    min-height: 48px;
+    box-sizing: border-box;
+    text-align: center;
+    background: var(--zoom-blue);
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    border-radius: var(--r-sm);
+  }
+
   #setup details {
     margin-top: 18px;
     font-size: 13px;
@@ -601,6 +631,23 @@
 
     <button id="joinBtn">CueLight starten</button>
     <p id="compatWarning" style="display:none;"></p>
+
+    <!-- Wird eingeblendet, solange kein Zoom-Konto freigegeben ist. Ein
+         echter Link statt window.open: Safari und iOS blockieren
+         automatisch geoeffnete Fenster, ein Antippen aber nie. -->
+    <div id="authNeeded" style="display:none;">
+      <p>
+        Noch kein Zoom-Konto freigegeben. Das ist einmalig nötig, damit
+        CueLight Meetings beitreten darf.
+      </p>
+      <a id="authLink" class="authbtn" target="_blank" rel="noopener">
+        Jetzt bei Zoom freigeben
+      </a>
+      <p class="hint">
+        Mit dem Konto anmelden, das die Meetings hostet. Danach hierher
+        zurück und „CueLight starten".
+      </p>
+    </div>
 
     <details>
       <summary>Lesezeichen und erweiterte Einstellungen</summary>
@@ -1146,14 +1193,51 @@
       connectionBannerEl.style.display = 'none';
     }
 
+    // CueLight sendet kein Video, teilt keinen Bildschirm und nutzt kein
+    // Mikrofon - fehlende Unterstuetzung fuer Virtual Background, Screen
+    // Share oder Remote Control ist deshalb voellig belanglos. Vorher stand
+    // deswegen eine rote Warnung im Formular, die nach einem Defekt aussah,
+    // obwohl alles in Ordnung war. Gewarnt wird nur noch bei etwas, das den
+    // Beitritt wirklich verhindert.
+    const FEATURES_CUELIGHT_BRAUCHT = ['WebAssembly', 'SharedArrayBuffer', 'WebSocket'];
+
     function showCompatWarning(unSupportFeatures) {
+      const relevant = (unSupportFeatures || []).filter((f) =>
+        FEATURES_CUELIGHT_BRAUCHT.some((needed) =>
+          String(f).toLowerCase().includes(needed.toLowerCase())
+        )
+      );
+      if (relevant.length === 0) return;
       const el = document.getElementById('compatWarning');
       el.textContent =
-        '⚠ Dieser Browser/dieses Gerät unterstützt evtl. nicht alles, was ' +
-        'CueLight braucht (' + unSupportFeatures.join(', ') + '). ' +
-        'Falls der Beitritt gleich fehlschlägt, probier ein anderes Gerät ' +
-        'oder einen aktuelleren Browser.';
+        '⚠ Diesem Browser fehlt etwas, das CueLight braucht (' +
+        relevant.join(', ') + '). Bitte ein anderes Gerät oder einen ' +
+        'aktuelleren Browser probieren.';
       el.style.display = 'block';
+    }
+
+    // --- Zoom-Freigabe ----------------------------------------------------
+    const authNeededEl = document.getElementById('authNeeded');
+    const authLinkEl = document.getElementById('authLink');
+
+    function showAuthNeeded(serverUrl) {
+      authLinkEl.href = `${serverUrl.replace(/\/$/, '')}/oauth/authorize`;
+      authNeededEl.style.display = 'block';
+    }
+
+    async function checkAuthorization(serverUrl) {
+      try {
+        const res = await fetch(`${serverUrl.replace(/\/$/, '')}/oauth/status`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.authorized) {
+          authNeededEl.style.display = 'none';
+        } else {
+          showAuthNeeded(serverUrl);
+        }
+      } catch (err) {
+        log('Freigabe-Status nicht abrufbar:', err);
+      }
     }
 
     function handleMeetingStatus(data) {
@@ -1303,14 +1387,12 @@
         const body = await obfRes.json().catch(() => ({}));
         console.error('OBF-Token-Fehler:', body);
         if (body.error === 'not_authorized') {
-          const authUrl = `${serverUrl}/oauth/authorize`;
-          const authWindow = window.open(authUrl, '_blank');
+          // Kein window.open mehr: das blockieren Safari und iOS
+          // zuverlaessig, und dann steht nur noch eine URL zum Abtippen da.
+          // Stattdessen erscheint ein Knopf direkt im Formular.
+          showAuthNeeded(serverUrl);
           throw new Error(
-            authWindow
-              ? 'Der Meeting-Host muss CueLight einmalig freigeben. Im neuen ' +
-                'Fenster mit dem Host-Konto anmelden, danach erneut starten.'
-              : `Der Meeting-Host muss CueLight einmalig unter ${authUrl} freigeben ` +
-                '(dein Browser hat das automatische Oeffnen blockiert).'
+            'Zoom-Freigabe fehlt. Der blaue Knopf dafuer steht jetzt unten im Formular.'
           );
         }
         throw new Error('Der Server konnte kein Beitritts-Token von Zoom holen.');
@@ -1380,10 +1462,16 @@
             },
             error: (err) => {
               console.error('Join-Fehler:', err);
+              // Zooms eigene Fehlermeldung mit anzeigen - ohne sie ist jede
+              // Fehlersuche Raterei.
+              const detail = [err && err.errorCode, err && (err.reason || err.message)]
+                .filter(Boolean)
+                .join(': ');
               toast(
-                'Beitritt fehlgeschlagen. Stimmen Meeting-Nummer und Passwort, ' +
-                'und gehoert das Meeting zum autorisierten Zoom-Konto?',
-                { error: true, ms: 12000 }
+                'Beitritt fehlgeschlagen' + (detail ? ` (${detail})` : '') +
+                '. Stimmen Meeting-Nummer und Passwort, und gehoert das ' +
+                'Meeting zum freigegebenen Zoom-Konto?',
+                { error: true, ms: 15000 }
               );
               setupEl.style.display = '';
               boardEl.classList.remove('active');
@@ -1435,6 +1523,11 @@
     // sowohl lokal als auch hinter der cloudflared-Domain), manuell
     // überschreibbar falls Server und CueLight getrennt laufen.
     document.getElementById('serverUrl').value = window.location.origin;
+
+    // Beim Laden nachsehen, ob schon ein Zoom-Konto freigegeben ist. So
+    // steht der Freigabe-Knopf bereit, BEVOR jemand vergeblich auf
+    // "starten" tippt.
+    checkAuthorization(window.location.origin);
 
     // Lesezeichen-Link: falls Meeting-Nummer (und ggf. Passwort) per
     // URL-Parameter mitkommen, Felder vorausfüllen und direkt starten -
