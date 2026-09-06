@@ -60,8 +60,20 @@
 
   /* Zooms Client-View-API rendert ihre komplette Meeting-Oberfläche in ein
      eigenes Element #zmmtg-root direkt in den body - das wollen wir
-     unsichtbar halten, wir brauchen nur die Teilnehmer-Daten, nicht das UI. */
-  #zmmtg-root {
+     unsichtbar halten, wir brauchen nur die Teilnehmer-Daten, nicht das UI.
+     Achtung: das SDK legt inzwischen NICHT mehr alles darunter ab, sondern
+     haengt weitere Container (Seitenleisten-Griff, Fusszeile, Dialoge)
+     direkt an den body. Die einzelnen Namen aendern sich mit jeder
+     SDK-Version, deshalb raeumt zusaetzlich hideZoomChrome() im JS auf. */
+  #zmmtg-root,
+  #wc-container-left,
+  #wc-container-right,
+  #wc-footer,
+  #zoom-ui-frame,
+  #sound-notification,
+  #aria-notify-area,
+  .zm-modal,
+  .zmwebsdk-makeStyles-root-1 {
     display: none !important;
   }
 
@@ -283,6 +295,9 @@
     display: none;
     text-align: center;
     padding: 1.2vh 3vw;
+    /* Platz fuer die beiden runden Knoepfe oben rechts freihalten -
+       sonst verschwindet das Ende des Textes darunter. */
+    margin-right: 104px;
     margin-bottom: 1.5vh;
     background: #dc2626;
     color: #ffffff;
@@ -308,23 +323,15 @@
   /* Dezenter Bedienhinweis fuer seltene Nutzer, blendet sich von selbst
      wieder aus (siehe hintTimer in JS) - kein Klick noetig, damit er bei
      haeufiger Nutzung nicht nervt. */
-  #hintBanner {
-    text-align: center;
-    margin-bottom: 1.5vh;
-    padding: 1.2vh 3vw;
+  /* Der Bedienhinweis sitzt jetzt unten bei den Meldungen statt oben.
+     Oben ist der Platz knapp: dort liegen die beiden Knoepfe, das
+     Verbindungs-Banner und der Zaehler. Unten ist ohnehin nichts, und ein
+     Hinweis ist nichts, wofuer man den wichtigsten Bereich raeumt. */
+  .toast.hint {
     background: var(--zoom-blue);
-    border: none;
-    border-radius: 6px;
-    color: #ffffff;
+    border-color: var(--zoom-blue);
     font-weight: 600;
-    font-size: clamp(14px, 1.6vw, 18px);
-    opacity: 0;
-    transition: opacity 0.6s ease;
-    pointer-events: none;
-  }
-
-  #hintBanner.visible {
-    opacity: 1;
+    text-align: center;
   }
 
   #lowerAllBtn {
@@ -671,7 +678,6 @@
 
   <div id="board">
     <div id="connectionBanner" style="display:none;"></div>
-    <div id="hintBanner">💡 Auf eine Kachel tippen schaltet die Person frei</div>
     <button id="meetingInfoBtn" title="Meeting-Infos">ⓘ</button>
     <button id="leaveBtn" title="Meeting verlassen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -722,7 +728,6 @@
     const leaveBtn = document.getElementById('leaveBtn');
     const counterEl = document.getElementById('counter');
     const connectionBannerEl = document.getElementById('connectionBanner');
-    const hintBannerEl = document.getElementById('hintBanner');
     const toastsEl = document.getElementById('toasts');
     const emptySubEl = document.getElementById('emptySub');
     const joinBtn = document.getElementById('joinBtn');
@@ -730,6 +735,28 @@
     function log(...args) {
       console.log('[CueLight]', ...args);
     }
+
+    // Das Zoom-SDK haengt eigene Container direkt an den body - je nach
+    // Version mit wechselnden Namen. Sichtbar wurden dadurch zuletzt ein
+    // grauer Griff am rechten Rand und ein weisser Balken unten. Statt der
+    // Namen hinterherzulaufen: alles ausblenden, was nicht von CueLight
+    // stammt. Ein MutationObserver faengt auch das ab, was das SDK erst
+    // spaeter nachlegt.
+    const CUELIGHT_ELEMENTS = new Set([
+      'setup', 'board', 'toasts', 'debug', 'meetingSDKElement',
+    ]);
+
+    function hideZoomChrome() {
+      for (const node of document.body.children) {
+        if (node.nodeType !== 1) continue;
+        const tag = node.tagName;
+        if (tag === 'SCRIPT' || tag === 'STYLE' || tag === 'LINK') continue;
+        if (node.id && CUELIGHT_ELEMENTS.has(node.id)) continue;
+        node.style.setProperty('display', 'none', 'important');
+      }
+    }
+
+    new MutationObserver(hideZoomChrome).observe(document.body, { childList: true });
 
     // Ersatz fuer alert(): blockiert den JS-Thread nicht, verdeckt die
     // Anzeige nicht dauerhaft und braucht kein Wegklicken auf der Buehne.
@@ -940,7 +967,7 @@
         log('Kein userId auf dieser Kachel, kann nicht entstummen.');
         return;
       }
-      hintBannerEl.classList.remove('visible');
+      hideHint();
       // mute() hat ein dokumentiertes Rate-Limit von 1s - ein zu schnell
       // folgender zweiter Tipp auf eine andere Kachel wuerde sonst
       // stillschweigend verworfen statt einen Fehler zu melden.
@@ -1005,9 +1032,9 @@
       clearTimeout(leaveArmed);
       leaveArmed = null;
       stopPolling();
-      // Ohne Query-Parameter, damit der Lesezeichen-Link nicht sofort
-      // wieder automatisch beitritt.
-      const leaveUrl = window.location.origin + window.location.pathname;
+      // Mit ?setup=1, damit nach dem Verlassen das Formular erscheint und
+      // nicht sofort wieder automatisch beigetreten wird.
+      const leaveUrl = window.location.origin + window.location.pathname + '?setup=1';
       ZoomMtg.leaveMeeting({
         leaveUrl,
         success: () => log('Meeting verlassen.'),
@@ -1305,14 +1332,27 @@
     // sich nach ein paar Sekunden von selbst wieder aus.
     // ---------------------------------------------------------------
     let hintShownThisMeeting = false;
+    let hintEl = null;
+
     function maybeShowHint() {
       if (hintShownThisMeeting || !isHostOrCoHost) return;
       hintShownThisMeeting = true;
-      hintBannerEl.classList.add('visible');
-      // Kein Auto-Ausblenden mehr: bleibt sichtbar, bis tatsaechlich eine
-      // Kachel angetippt wird (siehe Klick-Handler unten) - sonst wuerde
-      // der Hinweis verpasst, wenn in den ersten Sekunden niemand aufs
-      // Tablet schaut.
+      // Bleibt stehen, bis tatsaechlich eine Kachel angetippt wird - sonst
+      // wuerde der Hinweis verpasst, wenn in den ersten Sekunden niemand
+      // aufs Geraet schaut.
+      hintEl = document.createElement('div');
+      hintEl.className = 'toast hint';
+      hintEl.textContent = '💡 Auf eine Kachel tippen schaltet die Person frei';
+      toastsEl.appendChild(hintEl);
+      requestAnimationFrame(() => hintEl.classList.add('show'));
+    }
+
+    function hideHint() {
+      if (!hintEl) return;
+      const el = hintEl;
+      hintEl = null;
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 300);
     }
 
     // ---------------------------------------------------------------
@@ -1345,6 +1385,7 @@
 
       starting = true;
       currentMeetingNumber = meetingNumber;
+      rememberMeeting(meetingNumber, password);
       joinBtn.disabled = true;
       joinBtn.textContent = 'Verbinde …';
 
@@ -1407,6 +1448,7 @@
       setupEl.style.display = 'none';
       boardEl.classList.add('active');
 
+      hideZoomChrome();
       ZoomMtg.setZoomJSLib('https://source.zoom.us/6.2.0/lib', '/av');
       ZoomMtg.preLoadWasm();
       ZoomMtg.prepareWebSDK();
@@ -1440,6 +1482,7 @@
             obfToken,
             success: () => {
               log('Beigetreten. Warte auf Teilnehmer-Events …');
+              hideZoomChrome();
               joinedAt = Date.now();
               lastSuccessfulPollAt = Date.now();
               requestWakeLock();
@@ -1534,16 +1577,57 @@
     // "starten" tippt.
     checkAuthorization(window.location.origin);
 
-    // Lesezeichen-Link: falls Meeting-Nummer (und ggf. Passwort) per
-    // URL-Parameter mitkommen, Felder vorausfüllen und direkt starten -
-    // das ist der ganze Zweck des gespeicherten Links.
+    // ---------------------------------------------------------------
+    // Zuletzt genutztes Meeting merken
+    // ---------------------------------------------------------------
+    // Zum Homescreen hinzugefuegte Web-Apps starten immer unter der im
+    // Manifest hinterlegten start_url ("/") - die Parameter der Seite, von
+    // der aus man sie gespeichert hat, gehen dabei verloren. Deshalb merkt
+    // sich CueLight Nummer und Passwort selbst. Nebeneffekt: das Passwort
+    // steht nicht mehr zwingend in einer URL, die im Verlauf landet.
+    const STORE_KEY = 'cuelight:last-meeting';
+
+    function rememberMeeting(meetingNumber, password) {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({ meetingNumber, password }));
+      } catch (err) {
+        log('Konnte Meeting nicht merken:', err);
+      }
+    }
+
+    function loadRememberedMeeting() {
+      try {
+        return JSON.parse(localStorage.getItem(STORE_KEY) || 'null');
+      } catch {
+        return null;
+      }
+    }
+
+    // Als Web-App vom Homescreen gestartet?
+    const isStandalone =
+      window.navigator.standalone === true ||
+      window.matchMedia('(display-mode: standalone)').matches;
+
     const params = new URLSearchParams(window.location.search);
     const linkedMeeting = params.get('meeting');
+    const remembered = loadRememberedMeeting();
+    // ?setup=1 haelt bewusst im Formular an - so kommt man in der Web-App
+    // wieder an ein anderes Meeting heran (der Verlassen-Knopf nutzt das).
+    const wantsSetup = params.get('setup') === '1';
+
     if (linkedMeeting) {
       document.getElementById('meetingNumber').value = linkedMeeting;
       document.getElementById('password').value = params.get('password') || '';
       updateBookmarkLink();
       startBoard();
+    } else if (remembered && remembered.meetingNumber) {
+      document.getElementById('meetingNumber').value = remembered.meetingNumber;
+      document.getElementById('password').value = remembered.password || '';
+      updateBookmarkLink();
+      // In der Web-App direkt loslegen - genau dafuer tippt man auf das
+      // Symbol. Im normalen Browser-Tab nur vorausfuellen, damit man dort
+      // noch etwas aendern kann, bevor es losgeht.
+      if (isStandalone && !wantsSetup) startBoard();
     }
   </script>
 </body>
