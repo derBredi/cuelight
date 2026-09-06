@@ -15,19 +15,20 @@ es öffentlich sichtbar ist.
 | `GET /api/obf-token` | Token, das gegenüber Zoom **im Namen des freigebenden Hosts** wirkt | deutlich sensibler als die Signatur |
 | `GET /oauth/authorize` | startet die Freigabe | Fremde könnten die gespeicherte Freigabe überschreiben |
 
-Deshalb: **`CUELIGHT_ACCESS_TOKEN` setzen**, sobald die Instanz aus dem
-Internet erreichbar ist. Der Schlüssel schützt alle drei Endpunkte und
-die Seite selbst. Eine vorgelagerte Zugriffskontrolle (Cloudflare
-Access, Basic Auth im Reverse-Proxy, nur im VPN erreichbar) bleibt
-trotzdem sinnvoll — Sicherheit in zwei Schichten.
+Deshalb: **`CUELIGHT_PASSWORD` setzen**, sobald die Instanz aus dem
+Internet erreichbar ist — oder eine vorgelagerte Zugriffskontrolle
+(Cloudflare Access, Basic Auth im Reverse-Proxy, nur im VPN erreichbar)
+davorschalten. Eines von beidem genügt.
 
 ## Eingebaute Schutzmaßnahmen
 
-- Zugriffsschlüssel (`CUELIGHT_ACCESS_TOKEN`) vor allen Routen, Vergleich
-  in konstanter Zeit, Ablage im Browser als `HttpOnly`-Cookie.
-- OAuth mit `state`-Parameter gegen CSRF; optional Beschränkung auf ein
-  Zoom-Konto über `ZOOM_ALLOWED_ACCOUNT_ID`.
-- CORS nur für `APP_BASE_URL`, Content-Security-Policy, `nosniff`,
+- Passwort (`CUELIGHT_PASSWORD`) vor allen Routen, Vergleich in
+  konstanter Zeit, Eingabe über eine Anmeldeseite, Ablage im Browser als
+  `HttpOnly`-Cookie; Mengenlimit auf die Anmeldeversuche.
+- OAuth mit `state`-Parameter gegen CSRF; die Instanz bindet sich beim
+  ersten Mal automatisch an das freigebende Zoom-Konto und weist andere
+  Konten danach ab.
+- CORS abgeschaltet, Content-Security-Policy, `nosniff`,
   `frame-ancestors 'none'`, HSTS bei HTTPS.
 - Mengenlimit auf `/api/signature` und `/api/obf-token`.
 - Die Signatur wird immer mit Rolle 0 (Teilnehmer) ausgestellt; die

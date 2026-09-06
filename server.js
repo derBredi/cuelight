@@ -6,8 +6,8 @@
 //    "On Behalf Of"-Token (OBF) besorgen, wenn die App in einem ANDEREN
 //    Zoom-Account erstellt wurde als dem, der das Meeting hostet. Dafuer
 //    muss der Meeting-Host die App einmalig per OAuth freigeben.
-// 3) Den ganzen Dienst hinter einem optionalen Zugriffsschluessel halten
-//    (CUELIGHT_ACCESS_TOKEN), damit eine oeffentlich erreichbare Instanz
+// 3) Den ganzen Dienst optional hinter einem Passwort halten
+//    (CUELIGHT_PASSWORD), damit eine oeffentlich erreichbare Instanz
 //    nicht von Fremden benutzt oder umautorisiert werden kann.
 // Alle Zugangsdaten bleiben serverseitig, nie im Browser sichtbar.
 
@@ -23,53 +23,63 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 1); // laeuft hinter cloudflared / nginx / Caddy
 
-// --- SDK-Zugangsdaten (fuer die Signatur / den Beitritt selbst) ---------
-const SDK_KEY = process.env.ZOOM_MEETING_SDK_KEY;
-const SDK_SECRET = process.env.ZOOM_MEETING_SDK_SECRET;
+// --- Zugangsdaten der eigenen Zoom-App ----------------------------------
+// Eine "General App" bei Zoom hat genau EINE Client ID und EIN Client
+// Secret - dieselben Werte gelten fuer das Meeting SDK und fuer OAuth.
+// Deshalb gibt es hier auch nur zwei Felder. Die alten, vierfachen
+// Variablennamen funktionieren weiterhin, damit bestehende Installationen
+// nach einem Update nicht stehenbleiben.
+const CLIENT_ID = process.env.ZOOM_CLIENT_ID || process.env.ZOOM_MEETING_SDK_KEY || process.env.ZOOM_OAUTH_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.ZOOM_CLIENT_SECRET || process.env.ZOOM_MEETING_SDK_SECRET || process.env.ZOOM_OAUTH_CLIENT_SECRET || '';
 
-// --- OAuth-Zugangsdaten (fuer die einmalige Freigabe durch den Host) ----
-const OAUTH_CLIENT_ID = process.env.ZOOM_OAUTH_CLIENT_ID;
-const OAUTH_CLIENT_SECRET = process.env.ZOOM_OAUTH_CLIENT_SECRET;
-// Oeffentlich erreichbare Basis-URL, z. B. https://cuelight.deine-domain.de
+const SDK_KEY = process.env.ZOOM_MEETING_SDK_KEY || CLIENT_ID;
+const SDK_SECRET = process.env.ZOOM_MEETING_SDK_SECRET || CLIENT_SECRET;
+const OAUTH_CLIENT_ID = process.env.ZOOM_OAUTH_CLIENT_ID || CLIENT_ID;
+const OAUTH_CLIENT_SECRET = process.env.ZOOM_OAUTH_CLIENT_SECRET || CLIENT_SECRET;
+
+// Unter welcher Adresse ist CueLight erreichbar? Wird normalerweise aus
+// der Anfrage selbst abgeleitet (der Reverse-Proxy schickt Protokoll und
+// Hostname mit), sodass man sie nirgends eintragen muss. APP_BASE_URL
+// ueberschreibt das nur, falls die Ableitung mal nicht passt.
 const APP_BASE_URL = (process.env.APP_BASE_URL || '').replace(/\/$/, '');
-const IS_HTTPS = APP_BASE_URL.startsWith('https://');
+
+function baseUrl(req) {
+  if (APP_BASE_URL) return APP_BASE_URL;
+  return `${req.protocol}://${req.get('host')}`;
+}
+
+// Cookies nur dann als "Secure" markieren, wenn die Verbindung wirklich
+// ueber HTTPS laeuft - sonst kaeme ein reiner LAN-Test ohne TLS nicht
+// durch die Anmeldung.
+function isSecure(req) {
+  return req.protocol === 'https' || APP_BASE_URL.startsWith('https://');
+}
 
 // --- Zugriffsschutz -----------------------------------------------------
-// Optional, aber dringend empfohlen, sobald die Instanz aus dem Internet
-// erreichbar ist: ein frei gewaehlter langer Schluessel. Ohne ihn kommt
-// niemand an /api/signature, /api/obf-token oder /oauth/authorize.
-// Einmal https://deine-domain.de/?k=DEIN_SCHLUESSEL oeffnen - danach
-// merkt sich der Browser den Schluessel in einem Cookie.
-const ACCESS_TOKEN = process.env.CUELIGHT_ACCESS_TOKEN || '';
-
-// Optional: nur dieses Zoom-Konto darf die App autorisieren. Verhindert,
-// dass sich ein Fremder unter /oauth/authorize einklinkt und damit die
-// gespeicherte Freigabe des richtigen Hosts ueberschreibt.
-const ALLOWED_ACCOUNT_ID = process.env.ZOOM_ALLOWED_ACCOUNT_ID || '';
+// Optional: ein selbst gewaehltes Passwort. Ist es gesetzt, fragt CueLight
+// beim ersten Aufruf einmal danach und merkt es sich danach im Browser.
+// Leer lassen, wenn CueLight nicht oeffentlich erreichbar ist oder schon
+// eine eigene Zugriffskontrolle davor haengt (z. B. Cloudflare Access).
+const ACCESS_TOKEN = process.env.CUELIGHT_PASSWORD || process.env.CUELIGHT_ACCESS_TOKEN || '';
 
 // Notausgang, falls die Content-Security-Policy mit einer kuenftigen
 // SDK-Version kollidiert: CUELIGHT_DISABLE_CSP=1 setzen.
 const DISABLE_CSP = process.env.CUELIGHT_DISABLE_CSP === '1';
 
-if (!SDK_KEY || !SDK_SECRET) {
+if (!CLIENT_ID || !CLIENT_SECRET) {
   console.warn(
-    '[Achtung] ZOOM_MEETING_SDK_KEY / ZOOM_MEETING_SDK_SECRET fehlen. ' +
-    'Bitte in der .env bzw. docker-compose.yml eintragen.'
+    '[Achtung] ZOOM_CLIENT_ID / ZOOM_CLIENT_SECRET fehlen. Bitte in der ' +
+    'docker-compose.yml unter "environment:" eintragen - ohne sie kann ' +
+    'CueLight keinem Meeting beitreten.'
   );
 }
-if (!OAUTH_CLIENT_ID || !OAUTH_CLIENT_SECRET || !APP_BASE_URL) {
-  console.warn(
-    '[Achtung] ZOOM_OAUTH_CLIENT_ID / ZOOM_OAUTH_CLIENT_SECRET / APP_BASE_URL ' +
-    'fehlen. Ohne diese kann der Meeting-Host die App nicht per OAuth freigeben.'
-  );
-}
-if (!ACCESS_TOKEN) {
-  console.warn(
-    '[Achtung] CUELIGHT_ACCESS_TOKEN ist nicht gesetzt - der Dienst ist fuer ' +
-    'jeden nutzbar, der die URL kennt. Nur ohne oeffentliche Erreichbarkeit ' +
-    'oder hinter einer eigenen Zugriffskontrolle (z. B. Cloudflare Access) ok.'
-  );
-}
+console.log(
+  ACCESS_TOKEN
+    ? 'Passwortschutz aktiv: beim ersten Aufruf fragt CueLight einmal danach.'
+    : 'Kein Passwort gesetzt (CUELIGHT_PASSWORD leer) - jeder, der die ' +
+      'Adresse kennt, kann CueLight benutzen. In Ordnung im Heimnetz oder ' +
+      'hinter einer eigenen Zugriffskontrolle, sonst bitte setzen.'
+);
 
 // -------------------------------------------------------------------
 // Kleine Helfer ohne zusaetzliche Abhaengigkeiten
@@ -86,14 +96,14 @@ function parseCookies(req) {
   return out;
 }
 
-function setCookie(res, name, value, { maxAge, path: cookiePath = '/' } = {}) {
+function setCookie(res, name, value, { maxAge, path: cookiePath = '/', secure = false } = {}) {
   const parts = [
     `${name}=${encodeURIComponent(value)}`,
     `Path=${cookiePath}`,
     'HttpOnly',
     'SameSite=Lax',
   ];
-  if (IS_HTTPS) parts.push('Secure');
+  if (secure) parts.push('Secure');
   if (typeof maxAge === 'number') parts.push(`Max-Age=${maxAge}`);
   const existing = res.getHeader('Set-Cookie');
   const list = existing ? [].concat(existing) : [];
@@ -146,7 +156,7 @@ app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('X-Frame-Options', 'DENY');
-  if (IS_HTTPS) {
+  if (isSecure(req)) {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
   if (!DISABLE_CSP) {
@@ -170,10 +180,70 @@ app.use((req, res, next) => {
   next();
 });
 
-// CORS nur fuer die eigene Domain - vorher war jede fremde Website
-// berechtigt, hier Signaturen abzuholen.
-const allowedOrigins = [APP_BASE_URL].filter(Boolean);
-app.use(cors({ origin: allowedOrigins.length ? allowedOrigins : false, credentials: true }));
+// CORS aus: die Seite kommt vom selben Server wie die API, fremde
+// Websites haben hier nichts abzuholen. (Vorher war jede Origin erlaubt.)
+app.use(cors({ origin: false }));
+
+// --- Entsperr-Seite -----------------------------------------------------
+// Einmal den Schluessel in ein Feld eintippen statt ihn an die URL zu
+// haengen: der Browser bietet ihn danach als gespeichertes Passwort an,
+// er landet nicht im Verlauf, und Sonderzeichen koennen nichts kaputt
+// machen. Diese beiden Routen liegen bewusst VOR der Zugriffspruefung.
+function unlockPage({ wrong = false } = {}) {
+  return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CueLight entsperren</title>
+<style>
+  body { margin:0; min-height:100vh; display:flex; align-items:center;
+    justify-content:center; background:#1c1c2e; color:#f2f3f5;
+    font-family:-apple-system,"Segoe UI",Roboto,sans-serif; }
+  form { width:min(90vw,380px); padding:32px; background:#26263c;
+    border:1px solid #38384f; border-radius:12px; }
+  h1 { margin:0 0 8px; font-size:22px; }
+  p { margin:0 0 22px; font-size:13px; line-height:1.5; color:#8f8fa8; }
+  input { width:100%; box-sizing:border-box; padding:12px; font-size:16px;
+    background:#000; color:#f2f3f5; border:1px solid #38384f;
+    border-radius:6px; }
+  button { width:100%; margin-top:16px; min-height:48px; font-size:16px;
+    font-weight:600; color:#fff; background:#2d8cff; border:none;
+    border-radius:6px; cursor:pointer; }
+  .err { margin:14px 0 0; padding:10px 12px; font-size:13px; color:#f2f3f5;
+    background:rgba(220,38,38,0.15); border:1px solid #dc2626;
+    border-radius:6px; }
+</style></head><body>
+<form method="POST" action="/unlock">
+  <h1>CueLight</h1>
+  <p>Einmal pro Gerät das Passwort eintragen. Danach merkt sich der
+     Browser die Freigabe.</p>
+  <input type="password" name="key" autocomplete="current-password"
+         autofocus placeholder="Passwort" />
+  <button type="submit">Anmelden</button>
+  ${wrong ? '<p class="err">Passwort stimmt nicht. Es ist der Wert, der in der docker-compose.yml bei CUELIGHT_PASSWORD steht.</p>' : ''}
+</form></body></html>`;
+}
+
+app.get('/unlock', (req, res) => {
+  if (!ACCESS_TOKEN) return res.redirect('/');
+  res.type('html').send(unlockPage());
+});
+
+app.post(
+  '/unlock',
+  express.urlencoded({ extended: false, limit: '2kb' }),
+  rateLimit({ max: 10, windowMs: 60_000 }),
+  (req, res) => {
+    if (!ACCESS_TOKEN) return res.redirect('/');
+    const key = String((req.body && req.body.key) || '').trim();
+    if (safeEqual(key, ACCESS_TOKEN)) {
+      setCookie(res, 'cl_access', ACCESS_TOKEN, {
+        maxAge: 60 * 60 * 24 * 365,
+        secure: isSecure(req),
+      });
+      return res.redirect('/');
+    }
+    res.status(401).type('html').send(unlockPage({ wrong: true }));
+  }
+);
 
 // Zugriffsschluessel pruefen (falls gesetzt) - gilt fuer ALLES, auch fuer
 // die Seite selbst, /oauth/authorize und die API.
@@ -182,9 +252,15 @@ app.use((req, res, next) => {
   const cookies = parseCookies(req);
   if (safeEqual(cookies.cl_access || '', ACCESS_TOKEN)) return next();
 
-  const provided = typeof req.query.k === 'string' ? req.query.k : '';
-  if (safeEqual(provided, ACCESS_TOKEN)) {
-    setCookie(res, 'cl_access', ACCESS_TOKEN, { maxAge: 60 * 60 * 24 * 90 });
+  // ?k=... funktioniert weiterhin, z. B. fuer ein vorbereitetes Lesezeichen.
+  // Ein "+" im Schluessel kommt in der Query als Leerzeichen an - deshalb
+  // beide Schreibweisen pruefen.
+  const raw = typeof req.query.k === 'string' ? req.query.k : '';
+  if (raw && (safeEqual(raw, ACCESS_TOKEN) || safeEqual(raw.replace(/ /g, '+'), ACCESS_TOKEN))) {
+    setCookie(res, 'cl_access', ACCESS_TOKEN, {
+      maxAge: 60 * 60 * 24 * 365,
+      secure: isSecure(req),
+    });
     // Schluessel wieder aus der URL nehmen, damit er nicht in Lesezeichen,
     // Verlauf oder Screenshots stehen bleibt.
     const url = new URL(req.originalUrl, 'http://localhost');
@@ -192,10 +268,11 @@ app.use((req, res, next) => {
     return res.redirect(url.pathname + (url.search || ''));
   }
 
-  res
-    .status(401)
-    .type('text/plain; charset=utf-8')
-    .send('CueLight: Zugriffsschluessel fehlt. Seite einmal mit ?k=DEIN_SCHLUESSEL oeffnen.');
+  // Normaler Seitenaufruf -> Entsperr-Formular. API-Aufrufe bekommen
+  // weiterhin eine kurze, maschinenlesbare Antwort.
+  const wantsHtml = req.method === 'GET' && (req.headers.accept || '').includes('text/html');
+  if (wantsHtml) return res.redirect('/unlock');
+  res.status(401).json({ error: 'locked', message: 'Passwort fehlt.' });
 });
 
 app.use(express.json({ limit: '4kb' }));
@@ -308,19 +385,23 @@ async function refreshAccessToken(tokens) {
 
 // --- 1) Meeting-Host startet hier die einmalige Freigabe -----------------
 app.get('/oauth/authorize', (req, res) => {
-  if (!OAUTH_CLIENT_ID || !APP_BASE_URL) {
-    return res.status(500).send('Server nicht konfiguriert (ZOOM_OAUTH_CLIENT_ID / APP_BASE_URL fehlen).');
+  if (!OAUTH_CLIENT_ID) {
+    return res.status(500).send('Server nicht konfiguriert: ZOOM_CLIENT_ID fehlt.');
   }
   // state gegen CSRF: ohne diesen Wert koennte jemand den Betreiber auf
   // /oauth/callback?code=SEIN_CODE locken und die gespeicherte Freigabe
   // durch seine eigene ersetzen.
   const state = crypto.randomBytes(24).toString('base64url');
-  setCookie(res, 'cl_oauth_state', state, { maxAge: 600, path: '/oauth' });
+  setCookie(res, 'cl_oauth_state', state, {
+    maxAge: 600,
+    path: '/oauth',
+    secure: isSecure(req),
+  });
 
   const url = new URL('https://zoom.us/oauth/authorize');
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('client_id', OAUTH_CLIENT_ID);
-  url.searchParams.set('redirect_uri', `${APP_BASE_URL}/oauth/callback`);
+  url.searchParams.set('redirect_uri', `${baseUrl(req)}/oauth/callback`);
   url.searchParams.set('state', state);
   res.redirect(url.toString());
 });
@@ -337,7 +418,7 @@ app.get('/oauth/callback', async (req, res) => {
       .status(400)
       .send('Ungueltige oder abgelaufene Freigabe-Anfrage. Bitte erneut ueber /oauth/authorize starten.');
   }
-  setCookie(res, 'cl_oauth_state', '', { maxAge: 0, path: '/oauth' });
+  setCookie(res, 'cl_oauth_state', '', { maxAge: 0, path: '/oauth', secure: isSecure(req) });
 
   try {
     const tokenRes = await fetchWithTimeout('https://zoom.us/oauth/token', {
@@ -349,7 +430,7 @@ app.get('/oauth/callback', async (req, res) => {
       body: new URLSearchParams({
         grant_type: 'authorization_code',
         code,
-        redirect_uri: `${APP_BASE_URL}/oauth/callback`,
+        redirect_uri: `${baseUrl(req)}/oauth/callback`,
       }),
     });
 
@@ -360,8 +441,8 @@ app.get('/oauth/callback', async (req, res) => {
 
     const data = await tokenRes.json();
 
-    // Wer hat da eigentlich autorisiert? Wird angezeigt und - falls
-    // ZOOM_ALLOWED_ACCOUNT_ID gesetzt ist - auch geprueft.
+    // Wer hat da eigentlich autorisiert? Wird angezeigt und mit einer
+    // eventuell schon vorhandenen Freigabe verglichen.
     let account = {};
     try {
       const meRes = await fetchWithTimeout('https://api.zoom.us/v2/users/me', {
@@ -375,11 +456,27 @@ app.get('/oauth/callback', async (req, res) => {
       console.warn('Konnte Kontodaten nicht abrufen:', err);
     }
 
-    if (ALLOWED_ACCOUNT_ID && account.account_id !== ALLOWED_ACCOUNT_ID) {
-      console.warn('Freigabe abgelehnt, fremdes Zoom-Konto:', account.account_id);
+    // Das erste Konto, das freigibt, gehoert zu dieser Instanz. Ein
+    // spaeteres, anderes Konto wird abgewiesen - sonst koennte ein Fremder
+    // die Freigabe des richtigen Hosts einfach ueberschreiben. Kein
+    // Konfigurationsfeld noetig: die Instanz merkt sich das selbst.
+    const existing = loadTokens();
+    if (
+      existing &&
+      existing.account &&
+      existing.account.account_id &&
+      account.account_id &&
+      existing.account.account_id !== account.account_id
+    ) {
+      console.warn('Freigabe abgelehnt, anderes Zoom-Konto:', account.account_id);
       return res
         .status(403)
-        .send('Dieses Zoom-Konto ist fuer diese CueLight-Instanz nicht freigegeben.');
+        .send(
+          'Diese CueLight-Instanz ist bereits fuer ein anderes Zoom-Konto ' +
+          `freigegeben (${existing.account.email || existing.account.account_id}). ` +
+          'Zum Wechseln die Datei data/zoom-oauth-tokens.json loeschen und ' +
+          'den Container neu starten.'
+        );
     }
 
     saveTokens({
@@ -458,7 +555,9 @@ app.post('/api/signature', rateLimit({ max: 30, windowMs: 60_000 }), (req, res) 
     return res.status(400).json({ error: 'meetingNumber ungueltig (9-12 Ziffern erwartet)' });
   }
   if (!SDK_KEY || !SDK_SECRET) {
-    return res.status(500).json({ error: 'Server nicht konfiguriert (siehe .env)' });
+    return res.status(500).json({
+      error: 'Server nicht konfiguriert: ZOOM_CLIENT_ID / ZOOM_CLIENT_SECRET fehlen',
+    });
   }
 
   const iat = Math.floor(Date.now() / 1000) - 30; // 30s Puffer gegen Uhr-Drift

@@ -48,11 +48,12 @@ eigenen Kontos beitritt (siehe "Bekannte Einschränkungen").
    Zoom-Konto einloggen, das später die Meetings hostet.
 2. „Develop" → „Build App" → **General App** anlegen.
 3. Unter „Features" → „Embed" das **Meeting SDK** aktivieren. Unter
-   „App Credentials" findest du danach **Client ID** und **Client Secret**
-   - die brauchst du gleich zweimal (siehe unten, `ZOOM_MEETING_SDK_KEY`
-   und `ZOOM_OAUTH_CLIENT_ID` sind bei einer General App derselbe Wert).
+   „App Credentials" stehen dann **Client ID** und **Client Secret** -
+   das sind die beiden einzigen Werte, die CueLight braucht.
 4. Redirect-URL auf `https://deine-domain.de/oauth/callback` setzen
-   (die Domain, unter der CueLight später erreichbar sein wird).
+   (die Domain, unter der CueLight später erreichbar sein wird). Läuft
+   CueLight nur im Heimnetz, gehört hier `http://IP-DES-SERVERS:4000/oauth/callback`
+   hinein.
 5. Scope `user:read:token` hinzufügen.
 6. Muss nicht veröffentlicht werden - für den Eigengebrauch reicht der
    Entwicklungsmodus.
@@ -62,28 +63,22 @@ eigenen Kontos beitritt (siehe "Bekannte Einschränkungen").
 ```bash
 mkdir cuelight && cd cuelight
 curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/docker-compose.yml
-curl -o .env https://raw.githubusercontent.com/derbredi/cuelight/main/.env.example
-mkdir -p data
-nano .env                 # Zugangsdaten aus Schritt 1 eintragen
+nano docker-compose.yml   # Client ID und Client Secret aus Schritt 1 eintragen
 docker compose up -d
 ```
 
-Einen Zugriffsschlüssel erzeugst du am einfachsten so und trägst ihn als
-`CUELIGHT_ACCESS_TOKEN` in die `.env` ein:
+Mit Portainer geht es genauso: „Stacks" → „Add stack" → den Inhalt der
+`docker-compose.yml` einfügen, die beiden Werte eintragen, „Deploy".
 
-```bash
-openssl rand -base64 32
-```
+Es gibt nur zwei Pflichtfelder, `ZOOM_CLIENT_ID` und `ZOOM_CLIENT_SECRET`.
+Alles andere hat brauchbare Voreinstellungen. Keine `.env`-Datei, keine
+weitere Konfiguration.
 
 Prüfen, ob es läuft:
 ```bash
 docker compose logs -f
 ```
 Es sollte „Signature-Server laeuft auf http://localhost:4000" erscheinen.
-
-Der Container lauscht danach nur auf `127.0.0.1:4000` - für den echten
-Einsatz gehört ein Reverse-Proxy mit eigener Domain davor (siehe
-„Zugriff absichern" weiter unten).
 
 **Eigene Anpassungen am Code?** Statt `image:` in der `docker-compose.yml`
 kannst du auch `build: .` eintragen und das Repo klonen
@@ -92,12 +87,13 @@ kannst du auch `build: .` eintragen und das Repo klonen
 
 ## 3. CueLight öffnen
 
-Auf dem Gerät, das später die Bühnenanzeige zeigt (Tablet, Laptop, …):
-die eigene Domain öffnen. Die Signature-Server-URL im Formular füllt
-sich automatisch mit der aktuellen Domain, du musst dort nichts
-eintragen. Meeting-Nummer eingeben, „CueLight starten" - fertig. Für
-schnellen Wiedereinstieg lohnt sich danach der generierte
-Lesezeichen-Link (startet direkt, ohne erneute Eingabe).
+Auf dem Gerät, das später die Bühnenanzeige zeigt (Tablet, Laptop, …),
+`http://IP-DES-SERVERS:4000` bzw. die eigene Domain öffnen.
+Meeting-Nummer eingeben, „CueLight starten" - fertig. Beim ersten Mal
+schickt dich CueLight einmal zu Zoom, damit der Meeting-Host die App
+freigibt; das gilt danach dauerhaft. Für den schnellen Wiedereinstieg
+lohnt sich der generierte Lesezeichen-Link (startet direkt, ohne erneute
+Eingabe).
 
 ## Laufender Betrieb
 
@@ -108,33 +104,29 @@ Lesezeichen-Link (startet direkt, ohne erneute Eingabe).
 - Der Container startet dank `restart: unless-stopped` nach einem
   Server-Neustart automatisch wieder mit.
 
-## Wichtig: Zugriff absichern, sobald es öffentlich erreichbar ist
+## Zugriff absichern, sobald CueLight aus dem Internet erreichbar ist
 
-Sobald CueLight über eine echte Domain läuft, sind auch seine Endpunkte
-aus dem Internet erreichbar. `/api/obf-token` gibt dabei ein Token
-heraus, das gegenüber Zoom **im Namen des freigebenden Hosts** wirkt, und
-über ein offenes `/oauth/authorize` könnte ein Fremder die gespeicherte
-Freigabe durch seine eigene ersetzen.
+Im Heimnetz kannst du das überspringen. Sobald CueLight aber unter einer
+öffentlichen Adresse läuft, sollte nicht jeder hineinkommen: CueLight
+stellt Beitritts-Token für dein Zoom-Konto aus.
 
-**Erste Schicht: der eingebaute Zugriffsschlüssel.** Setz
-`CUELIGHT_ACCESS_TOKEN` in der `.env`. Danach beantwortet der Server keine
-einzige Anfrage mehr ohne diesen Schlüssel. Auf dem Bühnengerät einmalig
-`https://deine-domain.de/?k=DEIN_SCHLUESSEL` öffnen - der Server setzt
-daraufhin ein Cookie und entfernt den Schlüssel wieder aus der Adresszeile,
-damit er nicht in Verlauf oder Lesezeichen stehen bleibt.
+**Der einfache Weg:** In der `docker-compose.yml` bei `CUELIGHT_PASSWORD`
+ein Passwort eintragen und den Container neu starten. Beim ersten Aufruf
+fragt CueLight einmal danach, der Browser bietet an, es zu speichern, und
+merkt sich die Anmeldung ein Jahr. Auf dem Bühnengerät machst du das also
+genau einmal.
 
-**Zweite Schicht: eine vorgelagerte Zugriffskontrolle.** Zwei Wege, je
-nachdem was du schon nutzt:
+**Falls du schon eine Zugriffskontrolle hast:** Wer einen Cloudflare
+Tunnel, einen Reverse-Proxy mit Basic-Auth oder ein VPN wie Tailscale
+davor hat, lässt `CUELIGHT_PASSWORD` leer - doppelt anmelden muss sich
+niemand. Bei Cloudflare legst du dafür im Zero-Trust-Dashboard unter
+„Access → Applications" eine Application für die Subdomain an, mit einer
+Policy wie „nur diese E-Mail-Adressen dürfen rein".
 
-- **Nutzt du bereits Cloudflare Tunnel:** Im Zero-Trust-Dashboard unter
-  „Access → Applications" eine Application für die neue Subdomain anlegen,
-  mit einer Policy wie „nur diese E-Mail-Adressen dürfen rein". Dann fragt
-  Cloudflare vor dem Laden der Seite kurz nach einem Login-Code per Mail -
-  kein Zusatzcode in der App nötig.
-- **Ohne Cloudflare:** Ein Reverse-Proxy (z. B. nginx oder Caddy) mit
-  HTTP-Basic-Auth davorschalten, oder den Server nur über ein privates
-  Netz erreichbar machen (z. B. Tailscale/WireGuard) statt öffentlich ins
-  Internet zu stellen.
+Zwei Dinge regelt CueLight von selbst, ohne Konfiguration: Das erste
+Zoom-Konto, das die App freigibt, gehört ab dann zu dieser Instanz -
+ein anderes Konto wird abgewiesen. Und die Seite lässt sich nicht in
+fremde Websites einbetten.
 
 ## App auf ein anderes Zoom-Konto umziehen
 
@@ -144,10 +136,8 @@ nur, die App im Zielkonto neu anzulegen (Schritt 1 dieser README
 wiederholen, dann):
 
 1. Neue **Client ID** + **Client Secret** notieren.
-2. In der `.env` die vier Variablen
-   (`ZOOM_MEETING_SDK_KEY`, `ZOOM_MEETING_SDK_SECRET`,
-   `ZOOM_OAUTH_CLIENT_ID`, `ZOOM_OAUTH_CLIENT_SECRET`) durch die neuen
-   Werte ersetzen.
+2. In der `docker-compose.yml` `ZOOM_CLIENT_ID` und `ZOOM_CLIENT_SECRET`
+   durch die neuen Werte ersetzen.
 3. Alte `zoom-oauth-tokens.json` im gebundenen Datenverzeichnis löschen
    (gehört zur alten App, ist nutzlos) und den Container neu starten.
 4. Einmal neu unter `/oauth/authorize` mit dem Meeting-Host-Account

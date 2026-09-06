@@ -4,7 +4,6 @@ node_modules
 .github
 data
 .env
-.env.*
 assets
 README.md
 SECURITY.md

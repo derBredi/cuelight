@@ -1,24 +1,28 @@
-# Zieht das fertige, automatisch veröffentlichte Image.
+# CueLight - alles, was nötig ist, steht in dieser einen Datei.
 #
-#   cp .env.example .env    # und dort die Werte eintragen
 #   docker compose up -d
+#
+# In Portainer: "Stacks" -> "Add stack" -> diesen Text einfügen,
+# die beiden Werte unten eintragen, "Deploy".
 
 services:
   cuelight:
     image: ghcr.io/derbredi/cuelight:latest
     container_name: cuelight
     restart: unless-stopped
-    # Zugangsdaten stehen in der .env-Datei daneben, nicht in dieser Datei -
-    # so landen sie nicht versehentlich in einem Commit und tauchen auch
-    # nicht in "docker inspect" oder der Portainer-Oberfläche als Klartext
-    # in der Stack-Definition auf.
-    env_file:
-      - .env
+    environment:
+      # Aus der eigenen Zoom-App: Marketplace -> Develop -> Build App ->
+      # General App -> "App Credentials". Beide Werte stehen dort direkt
+      # untereinander (siehe README, Schritt 1).
+      ZOOM_CLIENT_ID: "hier_eintragen"
+      ZOOM_CLIENT_SECRET: "hier_eintragen"
+
+      # Passwort für die Seite. Nötig, sobald CueLight aus dem Internet
+      # erreichbar ist. Leer lassen, wenn es nur im Heimnetz läuft oder
+      # schon eine eigene Zugriffskontrolle davor hängt.
+      CUELIGHT_PASSWORD: ""
     volumes:
-      # Container regelt die Zugriffsrechte hierfür selbst beim Start -
-      # kein manuelles chown auf dem Host nötig.
+      # Hier merkt sich CueLight die einmalige Zoom-Freigabe.
       - ./data:/app/data
     ports:
-      # Nur lokal gebunden: davor gehört ein Reverse-Proxy (cloudflared,
-      # nginx, Caddy). Für einen reinen Test im LAN "127.0.0.1:" entfernen.
-      - "127.0.0.1:4000:4000"
+      - "4000:4000"
