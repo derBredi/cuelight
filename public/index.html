@@ -14,6 +14,70 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="CueLight" />
 
+<!-- Fehleranzeige fuer die Fehlersuche auf Geraeten ohne Entwicklerkonsole
+     (auf einem iPad kaeme man sonst nur ueber einen angeschlossenen Mac an
+     die Konsole). Zeigt JavaScript-Fehler und nicht ladbare Dateien direkt
+     auf dem Bildschirm an.
+
+     Bewusst hier oben und bewusst in alter Schreibweise: So faengt es auch
+     Fehler ab, die beim Laden des Zoom-SDK oder schon beim Einlesen des
+     Hauptskripts auftreten - dann laeuft von der eigentlichen App naemlich
+     noch gar nichts.
+
+     Ohne ?debug=1 in der Adresse bricht der Block sofort ab und richtet
+     nichts ein: keine Zuhoerer, kein Element, kein Verhalten. -->
+<script>
+(function () {
+  if (window.location.search.indexOf('debug=1') === -1) return;
+
+  var box = null;
+  var count = 0;
+
+  function show(text) {
+    try {
+      if (count >= 12) return; // nicht den ganzen Bildschirm zupflastern
+      count++;
+      if (!box) {
+        box = document.createElement('div');
+        // Die ID steht in CUELIGHT_ELEMENTS weiter unten: sonst wuerde
+        // hideZoomChrome() den Kasten fuer ein Zoom-Element halten und
+        // ausblenden.
+        box.id = 'cl-debug-errors';
+        box.setAttribute('style',
+          'position:fixed;left:0;right:0;bottom:0;z-index:2000000;' +
+          'max-height:45%;overflow:auto;padding:8px;' +
+          'background:rgba(60,10,10,0.94);color:#ffd7d7;' +
+          'font:12px/1.45 ui-monospace,Menlo,monospace;' +
+          'white-space:pre-wrap;word-break:break-word;pointer-events:none;');
+        (document.body || document.documentElement).appendChild(box);
+      }
+      var line = document.createElement('div');
+      line.textContent = text;
+      box.appendChild(line);
+    } catch (ignored) {}
+  }
+
+  // true = auch Ladefehler von Skripten und Bildern abfangen, die nicht
+  // bis zum window hochblubbern.
+  window.addEventListener('error', function (event) {
+    var target = event.target;
+    if (target && target !== window && (target.src || target.href)) {
+      show('Nicht geladen: ' + (target.src || target.href));
+      return;
+    }
+    var where = event.filename
+      ? ' (' + String(event.filename).split('/').pop() + ':' + event.lineno + ')'
+      : '';
+    show('Fehler: ' + (event.message || 'unbekannt') + where);
+  }, true);
+
+  window.addEventListener('unhandledrejection', function (event) {
+    var reason = event.reason;
+    show('Unbehandelt: ' + (reason && reason.message ? reason.message : String(reason)));
+  });
+})();
+</script>
+
 <style>
   :root {
     --bg: #1c1c2e;
@@ -879,6 +943,7 @@
     // spaeter nachlegt.
     const CUELIGHT_ELEMENTS = new Set([
       'setup', 'board', 'toasts', 'debug', 'meetingSDKElement',
+      'cl-debug-errors',
     ]);
 
     function hideZoomChrome() {

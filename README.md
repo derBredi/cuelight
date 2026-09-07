@@ -6,185 +6,163 @@
 
 [![Docker-Image veröffentlichen](https://github.com/derbredi/cuelight/actions/workflows/publish.yml/badge.svg)](https://github.com/derbredi/cuelight/actions/workflows/publish.yml)
 
-Ein großes, blinkendes Display, das nur die Zoom-Teilnehmer zeigt, die
-gerade die Hand heben – gedacht für Bühnenvorträge, wo ein kleines
-Tablet neben dem Pult zu leicht übersehen wird. Läuft komplett
-eigenständig: tritt dem Meeting selbst als unsichtbarer Teilnehmer bei,
-braucht dafür nur eine Internetverbindung und die Meeting-Nummer -
-kein Zugriff auf den Rechner, der das Meeting hostet, nötig.
+**Wortmeldungen aus einem Zoom-Meeting, groß genug, um sie aus dem
+Augenwinkel zu sehen.**
 
-## Wie es funktioniert
+Wer vor Publikum spricht und nebenbei Zuhörer aus Zoom dazunehmen will,
+hat ein Problem: Das kleine gelbe Handzeichen in der Teilnehmerliste sieht
+man nur, wenn man direkt hinschaut. CueLight zeigt stattdessen auf einem
+Tablet oder Bildschirm jede gehobene Hand als große, blinkende Kachel mit
+dem Namen – auffällig genug, dass man sie mitten im Satz bemerkt.
 
-1. `server.js` ist ein winziger Server, der eine gültige **Meeting-SDK-Signatur**
-   ausstellt (ein JWT). Deine Zoom-Zugangsdaten bleiben dabei immer auf dem
-   Server, nie im Browser sichtbar.
-2. `public/index.html` tritt deinem laufenden Zoom-Meeting als **unsichtbarer,
-   stummer Teilnehmer** bei (kein Video, kein Audio) und liest laufend die
-   Teilnehmerliste aus.
-3. Wer die Hand hebt, erscheint groß, mit Blink-Effekt, im Display. Wer sie senkt
-   oder das Meeting verlässt, verschwindet automatisch wieder.
+Ein Tipp auf eine Kachel schaltet die Person frei, sodass sie sofort
+sprechen kann.
 
-## Wichtige Einschränkung – bitte zuerst testen
+<p align="center">
+  <img src="assets/screenshot-board.png" width="30%" alt="Anzeige mit einer Wortmeldung" />
+  <img src="assets/screenshot-setup.png" width="30%" alt="Einrichtungsformular" />
+</p>
 
-Zooms eigene Dokumentation ist an dieser Stelle uneinheitlich: Manche
-Entwickler berichten, dass die Teilnehmerliste (`getAttendeeslist`) ein klares
-Feld für "Hand gehoben" enthält, andere melden, dass es fehlt. CueLight prüft
-deshalb mehrere bekannte Feldnamen und kann zusätzlich jedes rohe
-Teilnehmer-Objekt in die Browser-Konsole schreiben: dafür die Seite einmal
-mit `?debug=1` am Ende der Adresse öffnen. Mach vor dem eigentlichen
-Bühneneinsatz unbedingt einen Testlauf mit zwei Personen (eine hebt die Hand),
-schau in die Konsole (F12) und prüfe, ob und unter welchem Feldnamen sich der
-Zustand ändert. Falls keins der geprüften Felder anschlägt, öffne ein Issue
-mit dem, was in der Konsole für das Objekt auftaucht - dann lässt sich
-`isHandRaised()` in `public/index.html` entsprechend anpassen.
+## Was du brauchst
 
-## 1. Zoom-App anlegen (einmalig, kostenlos, pro Zoom-Konto)
+- **Einen Rechner mit Docker**, der während der Veranstaltung läuft. Ein
+  Raspberry Pi oder ein NAS reicht völlig.
+- **Ein Zoom-Konto**, unter dem die Meetings stattfinden.
+- **Ein Anzeigegerät** mit einem halbwegs aktuellen Browser: Tablet, Laptop
+  oder ein Bildschirm am Rechner. CueLight benutzt Zooms Meeting SDK; Zoom
+  empfiehlt dafür die aktuelle Browser-Version und zwei vorherige. Ältere
+  Geräte sind einen Versuch wert, statt sie von vornherein auszuschließen –
+  der schnellste Test steht unten unter „Wenn etwas nicht klappt".
 
-Jede Gruppe/jedes Zoom-Konto, das CueLight nutzen will, braucht eine
-**eigene** kleine Zoom-App - das ist kostenlos und dauert 5 Minuten, es
-ist kein Marketplace-Review nötig, solange CueLight nur Meetings des
-eigenen Kontos beitritt (siehe "Bekannte Einschränkungen").
+CueLight tritt dem Meeting als eigener, stummer Teilnehmer bei. Es braucht
+keinen Zugriff auf den Rechner, der das Meeting hostet.
 
-1. Bei [marketplace.zoom.us](https://marketplace.zoom.us) mit dem
-   Zoom-Konto einloggen, das später die Meetings hostet.
-2. „Develop" → „Build App" → **General App** anlegen.
-3. Unter „Features" → „Embed" das **Meeting SDK** aktivieren. Unter
-   „App Credentials" stehen dann **Client ID** und **Client Secret** -
-   das sind die beiden einzigen Werte, die CueLight braucht.
-4. Redirect-URL auf `https://deine-domain.de/oauth/callback` setzen
-   (die Domain, unter der CueLight später erreichbar sein wird). Läuft
-   CueLight nur im Heimnetz, gehört hier `http://IP-DES-SERVERS:4000/oauth/callback`
-   hinein.
-5. Scope `user:read:token` hinzufügen.
-6. Muss nicht veröffentlicht werden - für den Eigengebrauch reicht der
-   Entwicklungsmodus.
+## Einrichten
 
-## 2. CueLight starten
+### 1. Zoom-App anlegen
+
+Einmalig, kostenlos, dauert fünf Minuten. Melde dich dafür mit dem
+Zoom-Konto an, unter dem die Meetings später laufen – CueLight kann nur
+Meetings dieses Kontos beitreten.
+
+1. Auf [marketplace.zoom.us](https://marketplace.zoom.us) anmelden.
+2. **Develop → Build App → General App** anlegen.
+3. Unter **Features → Embed** das **Meeting SDK** einschalten.
+4. Unter **Scopes** den Eintrag `user:read:token` hinzufügen.
+5. Als **Redirect-URL** die Adresse eintragen, unter der CueLight später
+   erreichbar ist, mit `/oauth/callback` am Ende:
+   `https://deine-domain.de/oauth/callback` – oder im Heimnetz
+   `http://192.168.1.50:4000/oauth/callback` mit der IP deines Servers.
+6. Unter **App Credentials** stehen **Client ID** und **Client Secret**.
+   Diese beiden Werte brauchst du gleich.
+
+Die App muss nicht veröffentlicht werden.
+
+### 2. CueLight starten
 
 ```bash
 mkdir cuelight && cd cuelight
 curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/docker-compose.yml
-nano docker-compose.yml   # Client ID und Client Secret aus Schritt 1 eintragen
+nano docker-compose.yml   # Client ID und Client Secret eintragen
 docker compose up -d
 ```
 
-Mit Portainer geht es genauso: „Stacks" → „Add stack" → den Inhalt der
-`docker-compose.yml` einfügen, die beiden Werte eintragen, „Deploy".
+Mit **Portainer** geht es genauso: *Stacks → Add stack*, den Inhalt der
+`docker-compose.yml` einfügen, die beiden Werte eintragen, *Deploy*.
 
-Es gibt nur zwei Pflichtfelder, `ZOOM_CLIENT_ID` und `ZOOM_CLIENT_SECRET`.
-Alles andere hat brauchbare Voreinstellungen. Keine `.env`-Datei, keine
-weitere Konfiguration.
+Mehr als diese zwei Werte gibt es nicht einzustellen. Ob es läuft, zeigt
+`docker compose logs -f`.
 
-Prüfen, ob es läuft:
-```bash
-docker compose logs -f
-```
-Es sollte „Signature-Server laeuft auf http://localhost:4000" erscheinen.
+### 3. Loslegen
 
-**Eigene Anpassungen am Code?** Statt `image:` in der `docker-compose.yml`
-kannst du auch `build: .` eintragen und das Repo klonen
-(`git clone https://github.com/derbredi/cuelight.git`) - dann baut
-`docker compose up -d --build` dein eigenes Image aus dem lokalen Code.
+Öffne auf dem Anzeigegerät `http://IP-DES-SERVERS:4000` oder deine Domain,
+trage die Meeting-Nummer ein und tippe auf **CueLight starten**.
 
-## 3. CueLight öffnen
+Beim allerersten Mal erscheint ein blauer Knopf, der dich zu Zoom schickt:
+Dort meldest du dich mit dem Konto an, das die Meetings hostet, und gibst
+CueLight einmal frei. Das gilt danach dauerhaft.
 
-Auf dem Gerät, das später die Bühnenanzeige zeigt (Tablet, Laptop, …),
-`http://IP-DES-SERVERS:4000` bzw. die eigene Domain öffnen.
-Meeting-Nummer eingeben, „CueLight starten" - fertig. Beim ersten Mal
-schickt dich CueLight einmal zu Zoom, damit der Meeting-Host die App
-freigibt; das gilt danach dauerhaft.
+## Bedienen
 
-Meeting-Nummer und Passwort merkt sich CueLight danach auf dem Gerät. Legst
-du die Seite als Web-App auf den Startbildschirm, tritt sie beim Antippen
-direkt wieder bei - bis du einmal bewusst auf „Verlassen" tippst, dann
-bleibt sie im Formular stehen, bis du selbst wieder startest.
+- **Kachel antippen** schaltet die Person frei. Dafür braucht CueLight im
+  Meeting Host- oder Co-Host-Rechte – gib sie ihm in der
+  Zoom-Teilnehmerliste wie jedem anderen auch.
+- **Alle Hände herunternehmen** erscheint unter der letzten Kachel.
+- **Verlassen** ist der Knopf oben rechts. Danach bleibt CueLight so lange
+  im Formular stehen, bis du wieder selbst startest.
+- Meeting-Nummer und Passwort merkt sich CueLight auf dem Gerät. Legst du
+  die Seite auf den Startbildschirm, ist sie beim nächsten Antippen sofort
+  wieder im Meeting.
+- Quer gehaltene Geräte zeigen die Meldungen automatisch in mehreren
+  Spalten.
 
-Auf dem Board tippst du eine Kachel an, um die Person freizuschalten; das
-setzt Host- oder Co-Host-Rechte für CueLight im Meeting voraus. Quer
-liegende Bildschirme zeigen die Meldungen automatisch in mehreren Spalten.
-
-## Laufender Betrieb
-
-- **Update auf neue Version**: `docker compose pull && docker compose up -d`
-  (bzw. `docker compose up -d --build` bei eigenem Build, siehe oben)
-- **Stoppen**: `docker compose down`
-- **Logs ansehen**: `docker compose logs -f`
-- Der Container startet dank `restart: unless-stopped` nach einem
-  Server-Neustart automatisch wieder mit.
-
-## Zugriff absichern, sobald CueLight aus dem Internet erreichbar ist
+## Aus dem Internet erreichbar? Dann absichern
 
 Im Heimnetz kannst du das überspringen. Sobald CueLight aber unter einer
-öffentlichen Adresse läuft, sollte nicht jeder hineinkommen: CueLight
-stellt Beitritts-Token für dein Zoom-Konto aus.
+öffentlichen Adresse läuft, sollte nicht jeder hineinkommen – es stellt
+Beitritts-Token für dein Zoom-Konto aus.
 
-**Der einfache Weg:** In der `docker-compose.yml` bei `CUELIGHT_PASSWORD`
-ein Passwort eintragen und den Container neu starten. Beim ersten Aufruf
-fragt CueLight einmal danach, der Browser bietet an, es zu speichern, und
-merkt sich die Anmeldung ein Jahr. Auf dem Bühnengerät machst du das also
-genau einmal.
+**Der einfache Weg:** Trag in der `docker-compose.yml` bei
+`CUELIGHT_PASSWORD` ein Passwort ein und starte den Container neu. Beim
+ersten Aufruf fragt CueLight einmal danach und merkt sich die Anmeldung
+ein Jahr lang.
 
-**Falls du schon eine Zugriffskontrolle hast:** Wer einen Cloudflare
-Tunnel, einen Reverse-Proxy mit Basic-Auth oder ein VPN wie Tailscale
-davor hat, lässt `CUELIGHT_PASSWORD` leer - doppelt anmelden muss sich
-niemand. Bei Cloudflare legst du dafür im Zero-Trust-Dashboard unter
-„Access → Applications" eine Application für die Subdomain an, mit einer
-Policy wie „nur diese E-Mail-Adressen dürfen rein".
+**Hast du schon eine Zugriffskontrolle** – Cloudflare Access, einen
+Reverse-Proxy mit Passwortschutz oder ein VPN –, dann lass
+`CUELIGHT_PASSWORD` leer. Zweimal anmelden muss sich niemand.
 
-Zwei Dinge regelt CueLight von selbst, ohne Konfiguration: Das erste
-Zoom-Konto, das die App freigibt, gehört ab dann zu dieser Instanz -
-ein anderes Konto wird abgewiesen. Und die Seite lässt sich nicht in
-fremde Websites einbetten.
+## Betrieb
 
-## App auf ein anderes Zoom-Konto umziehen
+| Aufgabe | Befehl |
+|---|---|
+| Aktualisieren | `docker compose pull && docker compose up -d` |
+| Stoppen | `docker compose down` |
+| Protokoll ansehen | `docker compose logs -f` |
 
-Zoom SDK-Apps lassen sich **nicht** zwischen zwei Zoom-Konten übertragen
-(kein Verschiebe-Button, offiziell bestätigt in Zooms Doku). Es bleibt
-nur, die App im Zielkonto neu anzulegen (Schritt 1 dieser README
-wiederholen, dann):
+Nach einem Neustart des Servers startet CueLight von selbst wieder mit.
 
-1. Neue **Client ID** + **Client Secret** notieren.
-2. In der `docker-compose.yml` `ZOOM_CLIENT_ID` und `ZOOM_CLIENT_SECRET`
-   durch die neuen Werte ersetzen.
-3. Alte `zoom-oauth-tokens.json` im gebundenen Datenverzeichnis löschen
-   (gehört zur alten App, ist nutzlos) und den Container neu starten.
-4. Einmal neu unter `/oauth/authorize` mit dem Meeting-Host-Account
-   autorisieren.
+## Wenn etwas nicht klappt
 
-## Bekannte Einschränkungen
+**Der Beitritt schlägt fehl.** Prüfe zuerst, ob das Meeting zu demselben
+Zoom-Konto gehört, unter dem du die App angelegt hast. Meetings fremder
+Konten lässt Zoom nicht zu.
 
-- CueLight belegt einen zusätzlichen Teilnehmerplatz im Meeting.
-- Läuft der Server nicht mehr (z. B. Laptop zu), verliert CueLight die
-  Verbindung - für einen wichtigen Vortrag lohnt sich ein kurzer Trockenlauf
-  vorher.
-- Je nach Zoom-Kontotyp (Basic/Pro/Business) können SDK-Funktionen leicht
-  variieren.
-- **Die App kann nur Meetings beitreten, die zum selben Zoom-Konto gehören,
-  unter dem sie angelegt wurde.** Bei einem Meeting eines anderen
-  Zoom-Kontos (Fehlercode `NOT_ALLOW_CROSS_JOIN` bzw. sofortiger
-  Verbindungsabbruch nach dem Beitritt) hilft nur entweder das Meeting über
-  das eigene Konto laufen zu lassen, oder die App durch Zooms vollen
-  Marketplace-Review veröffentlichen zu lassen (aufwendig - siehe Zoom
-  Developer Docs "Meeting SDK apps now require review to join meetings
-  outside their own account"). **Deshalb: jede Gruppe betreibt am besten
-  ihre eigene CueLight-Instanz mit ihrem eigenen Zoom-Konto (siehe Schritt 1)
-  statt eine gemeinsame Instanz kontoübergreifend zu nutzen.**
-- Entstummen einzelner Personen und "Alle Hände herunternehmen" brauchen
-  Host- oder Co-Host-Rechte von CueLight im jeweiligen Meeting.
+**Auf einem Gerät passiert gar nichts.** Öffne dort `zoom.us/wc/join` und
+tritt einem Meeting bei – das benutzt dieselbe Technik wie CueLight.
+Klappt das nicht, ist das Gerät zu alt und CueLight kann daran nichts
+ändern. Klappt es dagegen (auch wenn Zoom eine Browser-Aktualisierung
+anmahnt), liegt es nicht am Gerät: dann bitte die Seite mit `?debug=1`
+öffnen und ein Issue mit dem aufmachen, was in der Browser-Konsole steht.
 
-## Falls es nicht zuverlässig funktioniert
+**Freischalten funktioniert nicht.** Dann hat CueLight im Meeting keine
+Host- oder Co-Host-Rechte.
 
-Falls sich herausstellt, dass Zoom das Handzeichen über die Attendee-Liste
-bei dir gar nicht sauber liefert, ist der robusteste Fallback weiterhin eine
-zweite Person, die die normale Zoom-Teilnehmerliste im Blick behält und dir
-ein Zeichen gibt - technisch unspektakulär, aber 100 % zuverlässig.
+**Gehobene Hände tauchen nicht auf.** Zoom liefert das Handzeichen je nach
+Kontotyp unterschiedlich. Öffne die Seite mit `?debug=1` am Ende der
+Adresse, dann schreibt CueLight die Rohdaten der Teilnehmerliste in die
+Browser-Konsole (F12). Bitte öffne damit ein Issue – dann lässt sich die
+Erkennung ergänzen.
+
+**Fehlersuche auf einem Tablet.** `?debug=1` zeigt Fehlermeldungen
+zusätzlich unten auf dem Bildschirm an – auch nicht ladbare Dateien und
+Fehler, die schon beim Start auftreten. So kommst du an eine brauchbare
+Meldung, ohne das Gerät an einen Rechner anschließen zu müssen.
+
+**Anderes Zoom-Konto nötig?** Zoom-Apps lassen sich nicht zwischen Konten
+umziehen. Leg im neuen Konto eine App an (Schritt 1), trage die neuen
+Zugangsdaten ein, lösche `data/zoom-oauth-tokens.json` und starte den
+Container neu.
 
 ## Mitmachen
 
 Fehler gefunden oder eine Idee? Gerne ein Issue oder einen Pull Request
-öffnen. Sicherheitslücken bitte nicht als öffentliches Issue, sondern
-gemäß [SECURITY.md](SECURITY.md) melden.
+öffnen. Sicherheitslücken bitte nicht öffentlich, sondern wie in
+[SECURITY.md](SECURITY.md) beschrieben melden.
+
+Wer am Code etwas ändern möchte: Repo klonen, in der `docker-compose.yml`
+`image:` durch `build: .` ersetzen und mit `docker compose up -d --build`
+bauen.
 
 ## Lizenz
 
-[MIT](LICENSE) - frei nutzbar, auch kommerziell, ohne Gewähr.
+[MIT](LICENSE) – frei nutzbar, auch kommerziell, ohne Gewähr.
