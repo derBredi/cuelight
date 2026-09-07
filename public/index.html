@@ -25,14 +25,20 @@
     --zoom-blue-dark: #1a6fe0;
     --flag: #f26d21;
     --flag-flash: #ffb066;
-    --flag-dark: #c9551a;
     --flag-text: #200d00;
-    --flag-glow: rgba(242, 109, 33, 0.75);
+    /* Leuchtender Koerper: heller Rand statt dunklem, dazu ein nach innen
+       abfallendes Licht. Ein Gegenstand, der selbst leuchtet, hat eine
+       HELLE Kante - ein dunkler Rahmen liest sich als lackiertes Schild. */
+    --flag-rim: #ffb066;
+    --flag-rim-hot: #ffdcbb;
+    --flag-inner: rgba(255, 200, 150, 0.75);
+    --flag-halo: rgba(242, 109, 33, 0.9);
     --speak: #22c55e;
     --speak-flash: #7ce3a0;
-    --speak-dark: #17a34a;
     --speak-text: #062012;
-    --speak-glow: rgba(34, 197, 94, 0.75);
+    --speak-rim: #7ce3a0;
+    --speak-inner: rgba(200, 245, 215, 0.75);
+    --speak-halo: rgba(34, 197, 94, 0.9);
 
     /* Meldungsflaeche: hell, damit der Text darauf in der
        Hintergrundfarbe stehen kann (rund 14:1 Kontrast). Gesaettigte
@@ -44,6 +50,9 @@
        klein = Eingaben/Buttons, gross = Kacheln. */
     --r-sm: 6px;
     --r-lg: 12px;
+    /* Luft rings um die Kacheln, damit ihr Schein nicht an der Kante des
+       Scrollbereichs abgeschnitten wird. */
+    --glow-room: 12px;
     --focus: #9ec7ff;
 
     /* Einmal definiert, ueberall verwendet - vorher stand die Schrift an
@@ -283,11 +292,17 @@
     position: fixed;
     inset: 0;
     flex-direction: column;
+    /* Seitlich 12px weniger als frueher - die 12px gibt stattdessen die
+       Kachelliste nach innen ab (siehe --glow-room). Netto stehen die
+       Kacheln damit an derselben Stelle wie vorher, haben aber Luft fuer
+       ihren Schein: die Liste ist der scrollbare Bereich, und sobald eine
+       Achse scrollt, schneidet der Browser an BEIDEN Kanten ab. Ohne diese
+       Luft wuerde der Schein links und rechts abgeschnitten. */
     padding:
       calc(1.5vh + 52px + env(safe-area-inset-top))
-      calc(5vw + env(safe-area-inset-right))
+      max(8px, calc(5vw - var(--glow-room) + env(safe-area-inset-right)))
       calc(2vh + env(safe-area-inset-bottom))
-      calc(5vw + env(safe-area-inset-left));
+      max(8px, calc(5vw - var(--glow-room) + env(safe-area-inset-left)));
     background: var(--bg);
     z-index: 999999;
     overflow: hidden;
@@ -304,6 +319,7 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding: 0 var(--glow-room);
   }
 
   #notices > * {
@@ -318,7 +334,7 @@
     flex-direction: column;
     align-items: center;
     gap: 8px;
-    padding-top: 1.2vh;
+    padding: 1.2vh var(--glow-room) 0;
   }
 
   #overflowHint {
@@ -486,6 +502,7 @@
     display: flex;
     flex-direction: column;
     gap: 3vh;
+    padding: var(--glow-room);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
   }
@@ -502,7 +519,9 @@
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
       grid-auto-rows: min-content;
-      gap: 2vh 2vw;
+      /* Spaltenabstand mindestens 26px, damit sich die Scheine zweier
+         nebeneinanderliegender Kacheln nicht beruehren. */
+      gap: 2vh max(2vw, 26px);
       align-content: start;
     }
   }
@@ -518,10 +537,19 @@
     gap: 3vw;
     padding: 2.2vh 3vw;
     background: var(--flag);
-    border: 1px solid var(--flag-dark);
+    border: 1px solid var(--flag-rim);
     border-radius: var(--r-lg);
-    /* Konstanter Schein statt animiertem - siehe @keyframes pulse. */
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 22px 0 var(--flag-glow);
+    /* Das Leuchten entsteht groesstenteils IN der Kachel: Lichtkante oben,
+       nach innen abfallendes Licht. Nach aussen nur ein knapper Schein
+       (9px weich, negative Ausbreitung), der die Form umschliesst statt
+       sie aufzublaehen - der frueher 22px weite Schein verschwamm bei
+       mehreren Kacheln ineinander und liess auf iOS den Rand der
+       Kompositionsebene erahnen. */
+    box-shadow:
+      0 4px 14px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 0 26px -6px var(--flag-inner),
+      0 0 9px -1px var(--flag-halo);
     /* Antippen bewirkt nur mit Host- oder Co-Host-Rechten etwas. Ohne sie
        ist das Board reine Anzeige - dann soll es sich auch nicht
        anfassbar anfuehlen und keine Fehlermeldung provozieren. */
@@ -549,13 +577,15 @@
   .cl-row.cl-unmuted {
     --flag: var(--speak);
     --flag-flash: var(--speak-flash);
-    --flag-dark: var(--speak-dark);
     --flag-text: var(--speak-text);
-    --flag-glow: var(--speak-glow);
     animation: none;
     background: var(--speak);
-    border-color: var(--speak-dark);
-    box-shadow: 0 4px 14px rgba(0,0,0,0.12), 0 0 30px 4px var(--speak-glow);
+    border-color: var(--speak-rim);
+    box-shadow:
+      0 4px 14px rgba(0,0,0,0.12),
+      inset 0 1px 0 rgba(255,255,255,0.4),
+      inset 0 0 26px -6px var(--speak-inner),
+      0 0 9px -1px var(--speak-halo);
     transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
   }
 
@@ -641,11 +671,11 @@
   @keyframes pulse {
     0%, 100% {
       background: var(--flag);
-      border-color: var(--flag-dark);
+      border-color: var(--flag-rim);
     }
     50% {
       background: var(--flag-flash);
-      border-color: var(--flag);
+      border-color: var(--flag-rim-hot);
     }
   }
 
