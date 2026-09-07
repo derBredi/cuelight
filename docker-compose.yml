@@ -18,11 +18,14 @@ services:
       ZOOM_CLIENT_SECRET: "hier_eintragen"
 
       # Passwort für die Seite. Nötig, sobald CueLight aus dem Internet
-      # erreichbar ist. Leer lassen, wenn es nur im Heimnetz läuft oder
-      # schon eine eigene Zugriffskontrolle davor hängt.
+      # erreichbar ist. Leer lassen, wenn schon eine eigene
+      # Zugriffskontrolle davor hängt (z. B. Cloudflare Access).
       CUELIGHT_PASSWORD: ""
     volumes:
       # Hier merkt sich CueLight die einmalige Zoom-Freigabe.
       - ./data:/app/data
     ports:
+      # Davor gehört zwingend etwas, das HTTPS bereitstellt - ein
+      # Cloudflare Tunnel oder ein Reverse-Proxy. Über eine unverschlüsselte
+      # Adresse verweigert Zoom den Beitritt (siehe README).
       - "4000:4000"

@@ -1637,6 +1637,23 @@
         return;
       }
 
+      // Zooms Medienkern braucht Browser-Schnittstellen, die es nur in einem
+      // "secure context" gibt - also ueber HTTPS oder unter localhost. Ueber
+      // eine gewoehnliche http://-Adresse fehlen navigator.mediaDevices und
+      // caches ersatzlos, und der Beitritt scheitert nach langer Wartezeit
+      // mit einer Kette unverstaendlicher Folgefehler. Lieber sofort und
+      // verstaendlich abbrechen.
+      if (window.isSecureContext === false) {
+        toast(
+          'CueLight muss über HTTPS aufgerufen werden. Über eine ' +
+          'unverschlüsselte Adresse stellt Zoom keine Verbindung her. ' +
+          'Aktuelle Adresse: ' + window.location.protocol + '//' +
+          window.location.host,
+          { error: true, ms: 20000 }
+        );
+        return;
+      }
+
       starting = true;
       currentMeetingNumber = meetingNumber;
       rememberMeeting(meetingNumber, password);

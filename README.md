@@ -27,6 +27,12 @@ sprechen kann.
 
 - **Einen Rechner mit Docker**, der während der Veranstaltung läuft. Ein
   Raspberry Pi oder ein NAS reicht völlig.
+- **Eine HTTPS-Adresse für CueLight.** Das ist keine Empfehlung, sondern
+  Voraussetzung: Zooms Technik nutzt Browser-Schnittstellen, die es
+  ausschließlich über verschlüsselte Verbindungen gibt. Über eine
+  gewöhnliche `http://`-Adresse im Heimnetz kommt keine Verbindung
+  zustande – auf keinem Gerät, auch nicht auf einem nagelneuen. Wie du am
+  einfachsten dazu kommst, steht weiter unten unter „HTTPS einrichten".
 - **Ein Zoom-Konto**, unter dem die Meetings stattfinden.
 - **Ein Anzeigegerät** mit einem halbwegs aktuellen Browser: Tablet, Laptop
   oder ein Bildschirm am Rechner. CueLight benutzt Zooms Meeting SDK; Zoom
@@ -36,6 +42,26 @@ sprechen kann.
 
 CueLight tritt dem Meeting als eigener, stummer Teilnehmer bei. Es braucht
 keinen Zugriff auf den Rechner, der das Meeting hostet.
+
+## HTTPS einrichten
+
+CueLight bringt selbst keine Verschlüsselung mit – davor gehört etwas, das
+das übernimmt. Zwei verbreitete Wege:
+
+- **Cloudflare Tunnel** (`cloudflared`): Braucht keine offenen Ports am
+  Router und liefert das Zertifikat automatisch mit. Für den Heimgebrauch
+  der bequemste Weg.
+- **Ein Reverse-Proxy** wie Caddy, nginx Proxy Manager oder Traefik mit
+  einem Zertifikat von Let's Encrypt. Setzt eine eigene Domain und einen
+  erreichbaren Port voraus.
+
+Beide Wege verlangen eine eigene Domain. Zum reinen Ausprobieren geht es
+auch ohne: Direkt auf dem Server selbst gilt `http://localhost:4000` als
+sichere Adresse und funktioniert.
+
+Woran du erkennst, dass es daran hakt: Der Beitritt dauert ewig und
+scheitert dann, und in der Adresszeile steht „Nicht sicher". CueLight
+weist inzwischen selbst darauf hin, bevor es überhaupt anfängt.
 
 ## Einrichten
 
@@ -49,10 +75,9 @@ Meetings dieses Kontos beitreten.
 2. **Develop → Build App → General App** anlegen.
 3. Unter **Features → Embed** das **Meeting SDK** einschalten.
 4. Unter **Scopes** den Eintrag `user:read:token` hinzufügen.
-5. Als **Redirect-URL** die Adresse eintragen, unter der CueLight später
-   erreichbar ist, mit `/oauth/callback` am Ende:
-   `https://deine-domain.de/oauth/callback` – oder im Heimnetz
-   `http://192.168.1.50:4000/oauth/callback` mit der IP deines Servers.
+5. Als **Redirect-URL** die HTTPS-Adresse eintragen, unter der CueLight
+   später erreichbar ist, mit `/oauth/callback` am Ende:
+   `https://deine-domain.de/oauth/callback`.
 6. Unter **App Credentials** stehen **Client ID** und **Client Secret**.
    Diese beiden Werte brauchst du gleich.
 
@@ -75,8 +100,12 @@ Mehr als diese zwei Werte gibt es nicht einzustellen. Ob es läuft, zeigt
 
 ### 3. Loslegen
 
-Öffne auf dem Anzeigegerät `http://IP-DES-SERVERS:4000` oder deine Domain,
-trage die Meeting-Nummer ein und tippe auf **CueLight starten**.
+Öffne auf dem Anzeigegerät deine HTTPS-Adresse, trage die Meeting-Nummer
+ein und tippe auf **CueLight starten**.
+
+Tippe die Adresse mit `https://` davor ein. Manche Geräte – ältere iPads
+zum Beispiel – bleiben sonst bei einer unverschlüsselten Verbindung, und
+dann scheitert der Beitritt.
 
 Beim allerersten Mal erscheint ein blauer Knopf, der dich zu Zoom schickt:
 Dort meldest du dich mit dem Konto an, das die Meetings hostet, und gibst
@@ -98,9 +127,8 @@ CueLight einmal frei. Das gilt danach dauerhaft.
 
 ## Aus dem Internet erreichbar? Dann absichern
 
-Im Heimnetz kannst du das überspringen. Sobald CueLight aber unter einer
-öffentlichen Adresse läuft, sollte nicht jeder hineinkommen – es stellt
-Beitritts-Token für dein Zoom-Konto aus.
+Sobald CueLight unter einer öffentlichen Adresse läuft, sollte nicht jeder
+hineinkommen – es stellt Beitritts-Token für dein Zoom-Konto aus.
 
 **Der einfache Weg:** Trag in der `docker-compose.yml` bei
 `CUELIGHT_PASSWORD` ein Passwort ein und starte den Container neu. Beim
@@ -126,6 +154,12 @@ Nach einem Neustart des Servers startet CueLight von selbst wieder mit.
 **Der Beitritt schlägt fehl.** Prüfe zuerst, ob das Meeting zu demselben
 Zoom-Konto gehört, unter dem du die App angelegt hast. Meetings fremder
 Konten lässt Zoom nicht zu.
+
+**Der Beitritt hängt und bricht dann ab.** Prüfe, ob in der Adresszeile
+`https://` steht. Über eine unverschlüsselte Verbindung fehlen dem
+Zoom-Kern zwingend benötigte Browser-Funktionen. Ältere Geräte schalten
+nicht von selbst auf HTTPS um, deshalb die Adresse dort vollständig
+eintippen.
 
 **Auf einem Gerät passiert gar nichts.** Öffne dort `zoom.us/wc/join` und
 tritt einem Meeting bei – das benutzt dieselbe Technik wie CueLight.
