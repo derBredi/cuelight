@@ -19,8 +19,7 @@ Ein Tipp auf eine Kachel schaltet die Person frei, sodass sie sofort
 sprechen kann.
 
 <p align="center">
-  <img src="assets/screenshot-board.png" width="30%" alt="Anzeige mit einer Wortmeldung" />
-  <img src="assets/screenshot-setup.png" width="30%" alt="Einrichtungsformular" />
+  <img src="assets/demo.gif" width="330" alt="Wortmeldungen erscheinen als große, blinkende Kacheln; die dritte wird freigeschaltet, springt nach vorn und färbt sich grün" />
 </p>
 
 ## Was du brauchst
@@ -101,7 +100,9 @@ Mehr als diese zwei Werte gibt es nicht einzustellen. Ob es läuft, zeigt
 ### 3. Loslegen
 
 Öffne auf dem Anzeigegerät deine HTTPS-Adresse, trage die Meeting-Nummer
-ein und tippe auf **CueLight starten**.
+ein und tippe auf **CueLight starten**. Unter welchem Namen CueLight im
+Meeting erscheint, kannst du im Feld darunter festlegen — leer bedeutet
+„CueLight".
 
 Tippe die Adresse mit `https://` davor ein. Manche Geräte – ältere iPads
 zum Beispiel – bleiben sonst bei einer unverschlüsselten Verbindung, und
@@ -119,7 +120,7 @@ CueLight einmal frei. Das gilt danach dauerhaft.
 - **Alle Hände herunternehmen** erscheint unter der letzten Kachel.
 - **Verlassen** ist der Knopf oben rechts. Danach bleibt CueLight so lange
   im Formular stehen, bis du wieder selbst startest.
-- Meeting-Nummer und Passwort merkt sich CueLight auf dem Gerät. Legst du
+- Meeting-Nummer, Passwort und Name merkt sich CueLight auf dem Gerät. Legst du
   die Seite auf den Startbildschirm, ist sie beim nächsten Antippen sofort
   wieder im Meeting.
 - Quer gehaltene Geräte zeigen die Meldungen automatisch in mehreren
@@ -196,6 +197,14 @@ Fehler gefunden oder eine Idee? Gerne ein Issue oder einen Pull Request
 Wer am Code etwas ändern möchte: Repo klonen, in der `docker-compose.yml`
 `image:` durch `build: .` ersetzen und mit `docker compose up -d --build`
 bauen.
+
+Das Bild oben wird aus der laufenden Anwendung erzeugt, nicht von Hand
+gebaut. Nach einer Änderung an der Oberfläche also einfach neu rendern:
+
+```bash
+npm install --no-save playwright && npx playwright install chromium
+node tools/screenshots.js
+```
 
 ## Lizenz
 

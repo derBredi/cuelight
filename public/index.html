@@ -484,9 +484,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  #lowerAllBtn:active {
-    filter: brightness(0.9);
-  }
+  /* Rueckmeldung beim Druecken - siehe .cl-pressed weiter unten. */
 
   /* Oben rechts fixiert, als einziges Element in dieser Zeile. Bewusst
      unauffaellig (keine Signalfarbe) - eine seltene, ueberlegte Aktion,
@@ -512,9 +510,7 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  #leaveBtn:active {
-    filter: brightness(0.85);
-  }
+  /* Rueckmeldung beim Druecken - siehe .cl-pressed weiter unten. */
 
   /* Zweiter Tipp bestaetigt - kein blockierender confirm()-Dialog. */
   #leaveBtn.cl-confirming {
@@ -581,7 +577,12 @@
   @media (orientation: landscape) {
     #list {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+      /* Hoechstens zwei Spalten: Die Schriftgroesse richtet sich nach dem
+         Bildschirm, nicht nach der Kachel - bei drei Spalten waeren die
+         Kacheln schmaler als der Text darin. Die 46% erzwingen das, weil
+         dreimal 46% nicht nebeneinander passen. Auf schmalen Geraeten
+         greift stattdessen die Untergrenze von 360px. */
+      grid-template-columns: repeat(auto-fit, minmax(max(360px, 46%), 1fr));
       grid-auto-rows: min-content;
       /* Spaltenabstand mindestens 26px, damit sich die Scheine zweier
          nebeneinanderliegender Kacheln nicht beruehren. */
@@ -630,8 +631,31 @@
     animation: pulse 1.1s ease-in-out infinite;
   }
 
-  .cl-row:active {
-    filter: brightness(0.92);
+  /* Sichtbare Rueckmeldung in dem Moment, in dem der Finger die Flaeche
+     beruehrt - noch bevor irgendetwas ueber das Netz geht. Frueher stand
+     hier :active, das aber auf iOS nur bei Elementen mit eigenem
+     Beruehrungs-Handler greift; unserer haengt am Container, also blieb
+     das Druecken auf dem iPad unsichtbar. Deshalb jetzt eine Klasse, die
+     das Skript bei pointerdown setzt.
+
+     Bewusst nur Helligkeit und Randfarbe, keine Groessenaenderung: Eine
+     Transformation verschiebt die Kachel auf eine eigene
+     Kompositionsebene, und genau daher kam der Rechteck-Kasten um die
+     Kachel auf iOS. */
+  .cl-pressed {
+    filter: brightness(0.85);
+    border-color: rgba(255, 255, 255, 0.85);
+  }
+
+  .cl-row,
+  #lowerAllBtn,
+  #leaveBtn {
+    transition: filter 0.06s linear, border-color 0.06s linear;
+  }
+
+  #lowerAllBtn.cl-pressed,
+  #leaveBtn.cl-pressed {
+    filter: brightness(1.35);
   }
 
   /* Mikro ist offen -> gleich wird gesprochen. Biegt die im Rest der
@@ -755,6 +779,30 @@
     font-family: var(--font-mono, ui-monospace, monospace);
   }
 
+  /* Im Querformat liegen die Kacheln nebeneinander, jede ist also nur noch
+     einen Bruchteil so breit wie der Bildschirm. Schrift, Symbol und
+     Abstaende muessen mitgehen, sonst werden laengere Namen abgeschnitten,
+     obwohl daneben Platz waere.
+
+     Dieser Block steht bewusst HINTER den Kachelregeln: bei gleicher
+     Spezifitaet gewinnt die spaetere Regel, und weiter oben wuerde er
+     wirkungslos bleiben. */
+  @media (orientation: landscape) {
+    .cl-row {
+      gap: 1.6vw;
+      padding: 1.8vh 2vw;
+    }
+
+    .cl-row .cl-name {
+      font-size: clamp(20px, min(3vw, 6vh), 46px);
+    }
+
+    .cl-row .cl-mic {
+      width: clamp(26px, min(2.6vw, 5vh), 44px);
+      height: clamp(26px, min(2.6vw, 5vh), 44px);
+    }
+  }
+
   /* Meldungen ohne alert(): ein alert() blockiert den JS-Thread, damit
      steht waehrenddessen auch die Aktualisierung der Anzeige still -
      ausgerechnet im Moment, in dem gerade etwas schiefgegangen ist. */
@@ -818,6 +866,9 @@
     <label for="password">Meeting-Passwort</label>
     <input id="password" placeholder="leer lassen, falls keins" autocomplete="off" />
 
+    <label for="displayName">Name im Meeting</label>
+    <input id="displayName" placeholder="CueLight" autocomplete="off" maxlength="60" />
+
     <button id="joinBtn">CueLight starten</button>
     <p id="compatWarning" style="display:none;"></p>
 
@@ -839,7 +890,7 @@
     </div>
 
     <details>
-      <summary>Lesezeichen und erweiterte Einstellungen</summary>
+      <summary>Lesezeichen-Link</summary>
 
       <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
       <input id="bookmarkLink" readonly />
@@ -848,13 +899,6 @@
         Achtung: Der Link enthaelt das Meeting-Passwort im Klartext und landet
         so auch im Browser-Verlauf. Nur auf Geraeten speichern, die du selbst
         kontrollierst.
-      </p>
-
-      <label for="serverUrl">Signature-Server-URL</label>
-      <input id="serverUrl" value="" />
-      <p class="cl-hint">
-        Ist normalerweise schon richtig ausgefuellt. Nur aendern, wenn der
-        Server unter einer anderen Adresse laeuft als diese Seite.
       </p>
     </details>
    </div>
@@ -1209,6 +1253,34 @@
     // Bedienenden direkt zeigen, damit klar ist, woran es liegt.
     let lastMuteCallAt = 0;
 
+    // ------------------------------------------------------------------
+    // Rueckmeldung beim Druecken
+    // ------------------------------------------------------------------
+    // Bewusst ueber pointerdown/pointerup statt ueber :active, damit es
+    // auch auf iOS zuverlaessig erscheint. Delegiert am Dokument, damit es
+    // fuer Kacheln gilt, die es beim Laden noch gar nicht gab.
+    let pressedEl = null;
+
+    function setPressed(el) {
+      if (pressedEl === el) return;
+      if (pressedEl) pressedEl.classList.remove('cl-pressed');
+      pressedEl = el;
+      if (el) el.classList.add('cl-pressed');
+    }
+
+    document.addEventListener('pointerdown', (e) => {
+      const el = e.target.closest('.cl-row, #lowerAllBtn, #leaveBtn');
+      if (!el) return;
+      // Ohne Host-Rechte bewirkt ein Tipp auf eine Kachel nichts - dann soll
+      // sie sich auch nicht gedrueckt anfuehlen.
+      if (el.classList.contains('cl-row') && !isHostOrCoHost) return;
+      setPressed(el);
+    });
+
+    for (const ereignis of ['pointerup', 'pointercancel', 'scroll', 'visibilitychange']) {
+      document.addEventListener(ereignis, () => setPressed(null), true);
+    }
+
     listEl.addEventListener('click', (e) => {
       const row = e.target.closest('.cl-row');
       if (!row) return;
@@ -1550,10 +1622,10 @@
             );
           } else {
             showConnectionWarning(
-              'Warte weiterhin auf Beitritt … Dauert das ungewöhnlich lange, ' +
-              'gehört das Meeting evtl. zu einem anderen Zoom-Konto als dem, ' +
-              'für das CueLight autorisiert ist - dann hilft eine neue ' +
-              'Autorisierung unter /oauth/authorize.',
+              'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
+              'noch nicht im Meeting, das Meeting-Passwort stimmt nicht, oder ' +
+              'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
+              'CueLight freigegeben ist.',
               { waiting: true }
             );
           }
@@ -1622,7 +1694,14 @@
 
       const meetingNumber = document.getElementById('meetingNumber').value.replace(/\D/g, '');
       const password = document.getElementById('password').value;
-      const serverUrl = document.getElementById('serverUrl').value.replace(/\/$/, '');
+      // Leerer Eintrag heisst "CueLight" - so heisst der Teilnehmer wie
+      // bisher, ohne dass jemand etwas ausfuellen muss.
+      const displayName = document.getElementById('displayName').value.trim() || STANDARD_NAME;
+      // Immer die eigene Herkunft: Die Seite kommt vom selben Server wie die
+      // API, und CORS ist abgeschaltet - ein getrennter Server koennte gar
+      // nicht antworten. Frueher stand hier ein Eingabefeld dafuer, das nur
+      // Fragen aufgeworfen und nie einen Fall geloest hat.
+      const serverUrl = window.location.origin;
 
       if (!/^\d{9,12}$/.test(meetingNumber)) {
         toast('Meeting-Nummer eingeben (9 bis 12 Ziffern).', { error: true });
@@ -1656,12 +1735,12 @@
 
       starting = true;
       currentMeetingNumber = meetingNumber;
-      rememberMeeting(meetingNumber, password);
+      rememberMeeting(meetingNumber, password, displayName);
       joinBtn.disabled = true;
       joinBtn.textContent = 'Verbinde …';
 
       try {
-        await joinMeeting({ meetingNumber, password, serverUrl });
+        await joinMeeting({ meetingNumber, password, serverUrl, displayName });
       } catch (err) {
         // Ohne diesen Block scheitert z. B. ein Netzwerkfehler lautlos und
         // der Knopf wirkt einfach kaputt.
@@ -1679,7 +1758,7 @@
       }
     }
 
-    async function joinMeeting({ meetingNumber, password, serverUrl }) {
+    async function joinMeeting({ meetingNumber, password, serverUrl, displayName }) {
       // Signatur vom eigenen kleinen Server holen (siehe server.js)
       const res = await fetch(`${serverUrl}/api/signature`, {
         method: 'POST',
@@ -1725,7 +1804,9 @@
       ZoomMtg.prepareWebSDK();
 
       ZoomMtg.init({
-        leaveUrl: window.location.origin + window.location.pathname,
+        // Mit ?setup=1, damit die Web-App nach einem vom Host beendeten
+        // Meeting im Formular stehen bleibt statt sofort wieder beizutreten.
+        leaveUrl: window.location.origin + window.location.pathname + '?setup=1',
         patchJsMedia: true,
         isSupportAV: false, // CueLight braucht nie Kamera/Mikro, kein Berechtigungsdialog nötig
         success: () => {
@@ -1749,7 +1830,7 @@
             signature,
             meetingNumber,
             passWord: password,
-            userName: 'CueLight',
+            userName: displayName,
             obfToken,
             success: () => {
               log('Beigetreten. Warte auf Teilnehmer-Events …');
@@ -1814,14 +1895,17 @@
     function updateBookmarkLink() {
       const meetingNumber = document.getElementById('meetingNumber').value.trim();
       const password = document.getElementById('password').value;
+      const displayName = document.getElementById('displayName').value.trim();
       const url = new URL(window.location.href);
       url.search = '';
       if (meetingNumber) url.searchParams.set('meeting', meetingNumber);
       if (password) url.searchParams.set('password', password);
+      if (displayName) url.searchParams.set('name', displayName);
       document.getElementById('bookmarkLink').value = meetingNumber ? url.toString() : '';
     }
     document.getElementById('meetingNumber').addEventListener('input', updateBookmarkLink);
     document.getElementById('password').addEventListener('input', updateBookmarkLink);
+    document.getElementById('displayName').addEventListener('input', updateBookmarkLink);
 
     document.getElementById('copyLinkBtn').addEventListener('click', async () => {
       const linkEl = document.getElementById('bookmarkLink');
@@ -1839,11 +1923,6 @@
       }
     });
 
-    // Server-URL automatisch mit der eigenen Herkunft füllen (funktioniert
-    // sowohl lokal als auch hinter der cloudflared-Domain), manuell
-    // überschreibbar falls Server und CueLight getrennt laufen.
-    document.getElementById('serverUrl').value = window.location.origin;
-
     // Beim Laden nachsehen, ob schon ein Zoom-Konto freigegeben ist. So
     // steht der Freigabe-Knopf bereit, BEVOR jemand vergeblich auf
     // "starten" tippt.
@@ -1858,11 +1937,14 @@
     // sich CueLight Nummer und Passwort selbst. Nebeneffekt: das Passwort
     // steht nicht mehr zwingend in einer URL, die im Verlauf landet.
     const STORE_KEY = 'cuelight:last-meeting';
+    // Name, unter dem CueLight dem Meeting beitritt, wenn nichts anderes
+    // eingetragen ist.
+    const STANDARD_NAME = 'CueLight';
     const PAUSED_KEY = 'cuelight:paused';
 
-    function rememberMeeting(meetingNumber, password) {
+    function rememberMeeting(meetingNumber, password, displayName) {
       try {
-        localStorage.setItem(STORE_KEY, JSON.stringify({ meetingNumber, password }));
+        localStorage.setItem(STORE_KEY, JSON.stringify({ meetingNumber, password, displayName }));
         // Von Hand gestartet - damit ist die Pause aufgehoben und die
         // Web-App darf beim naechsten Oeffnen wieder direkt beitreten.
         localStorage.removeItem(PAUSED_KEY);
@@ -1904,11 +1986,13 @@
     if (linkedMeeting) {
       document.getElementById('meetingNumber').value = linkedMeeting;
       document.getElementById('password').value = params.get('password') || '';
+      document.getElementById('displayName').value = params.get('name') || '';
       updateBookmarkLink();
       startBoard();
     } else if (remembered && remembered.meetingNumber) {
       document.getElementById('meetingNumber').value = remembered.meetingNumber;
       document.getElementById('password').value = remembered.password || '';
+      document.getElementById('displayName').value = remembered.displayName || '';
       updateBookmarkLink();
       // In der Web-App direkt loslegen - genau dafuer tippt man auf das
       // Symbol. Im normalen Browser-Tab nur vorausfuellen, damit man dort

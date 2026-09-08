@@ -28,8 +28,12 @@ davorschalten. Eines von beidem genügt.
 - OAuth mit `state`-Parameter gegen CSRF; die Instanz bindet sich beim
   ersten Mal automatisch an das freigebende Zoom-Konto und weist andere
   Konten danach ab.
-- CORS abgeschaltet, Content-Security-Policy, `nosniff`,
-  `frame-ancestors 'none'`, HSTS bei HTTPS.
+- CORS abgeschaltet, `nosniff`, `frame-ancestors 'none'`, HSTS bei HTTPS.
+- Eine Content-Security-Policy ist vorbereitet, aber standardmäßig **aus**:
+  Sie kann das Zoom-SDK blockieren, und ein Schutz, der die Anzeige mitten
+  in einer Veranstaltung lahmlegt, richtet mehr Schaden an, als er
+  verhindert. Einschalten mit `CUELIGHT_ENABLE_CSP=1` — danach bitte einmal
+  einen vollständigen Beitritt testen.
 - Mengenlimit auf `/api/signature` und `/api/obf-token`.
 - Die Signatur wird immer mit Rolle 0 (Teilnehmer) ausgestellt; die
   Meeting-Nummer muss aus 9–12 Ziffern bestehen.

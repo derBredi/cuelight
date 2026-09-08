@@ -62,6 +62,16 @@ function isSecure(req) {
 // eine eigene Zugriffskontrolle davor haengt (z. B. Cloudflare Access).
 const ACCESS_TOKEN = process.env.CUELIGHT_PASSWORD || process.env.CUELIGHT_ACCESS_TOKEN || '';
 
+// Im Cookie steht nicht das Passwort selbst, sondern ein daraus
+// abgeleiteter Wert. HttpOnly schuetzt vor Zugriff aus JavaScript, aber ein
+// Geraete-Backup oder ein Cookie-Export haette sonst das Passwort im
+// Klartext enthalten. Aus dem abgeleiteten Wert laesst es sich nicht
+// zurueckrechnen; ein geaendertes Passwort macht weiterhin alle
+// bestehenden Anmeldungen ungueltig.
+const ACCESS_COOKIE = ACCESS_TOKEN
+  ? crypto.createHmac('sha256', ACCESS_TOKEN).update('cl_access.v1').digest('base64url')
+  : '';
+
 // Content-Security-Policy: standardmaessig AUS. Sie kann das Zoom-SDK
 // blockieren (WebAssembly, Worker, Medien-Verbindungen zu wechselnden
 // Zoom-Hosts), und ein Schutzmechanismus, der die Anzeige mitten in einer
@@ -252,7 +262,7 @@ app.post(
     if (!ACCESS_TOKEN) return res.redirect('/');
     const key = String((req.body && req.body.key) || '').trim();
     if (safeEqual(key, ACCESS_TOKEN)) {
-      setCookie(res, 'cl_access', ACCESS_TOKEN, {
+      setCookie(res, 'cl_access', ACCESS_COOKIE, {
         maxAge: 60 * 60 * 24 * 365,
         secure: isSecure(req),
       });
@@ -267,14 +277,14 @@ app.post(
 app.use((req, res, next) => {
   if (!ACCESS_TOKEN) return next();
   const cookies = parseCookies(req);
-  if (safeEqual(cookies.cl_access || '', ACCESS_TOKEN)) return next();
+  if (safeEqual(cookies.cl_access || '', ACCESS_COOKIE)) return next();
 
   // ?k=... funktioniert weiterhin, z. B. fuer ein vorbereitetes Lesezeichen.
   // Ein "+" im Schluessel kommt in der Query als Leerzeichen an - deshalb
   // beide Schreibweisen pruefen.
   const raw = typeof req.query.k === 'string' ? req.query.k : '';
   if (raw && (safeEqual(raw, ACCESS_TOKEN) || safeEqual(raw.replace(/ /g, '+'), ACCESS_TOKEN))) {
-    setCookie(res, 'cl_access', ACCESS_TOKEN, {
+    setCookie(res, 'cl_access', ACCESS_COOKIE, {
       maxAge: 60 * 60 * 24 * 365,
       secure: isSecure(req),
     });
@@ -516,11 +526,19 @@ app.get('/oauth/callback', async (req, res) => {
 });
 
 // Fuer die Anzeige im Board: ist der Host schon einmalig freigegeben?
-app.get('/oauth/status', (req, res) => {
+app.get('/oauth/status', async (req, res) => {
   const tokens = loadTokens();
+  if (!tokens) return res.json({ authorized: false, account: null });
+
+  // Bewusst nicht nur pruefen, ob die Datei da ist: Zoom laesst
+  // Refresh-Tokens nach laengerer Nichtnutzung verfallen. Sonst sieht das
+  // Formular am Veranstaltungstag gruen aus, und erst der Beitritt
+  // scheitert. Der Aufruf erneuert das Token nebenbei, hält es also
+  // frisch, sooft jemand die Seite oeffnet.
+  const accessToken = await getValidAccessToken();
   res.json({
-    authorized: !!tokens,
-    account: tokens && tokens.account ? tokens.account.email || null : null,
+    authorized: !!accessToken,
+    account: tokens.account ? tokens.account.email || null : null,
   });
 });
 
@@ -578,7 +596,11 @@ app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_
   }
 
   const iat = Math.floor(Date.now() / 1000) - 30; // 30s Puffer gegen Uhr-Drift
-  const exp = iat + 60 * 60 * 2; // 2 Stunden Gueltigkeit
+  // Zoom erlaubt bis 48 Stunden. Zwei waren knapp: Bei einer
+  // Verbindungsstoerung versucht das SDK den Wiedereinstieg mit derselben
+  // Signatur - nach einer langen Veranstaltung koennte die abgelaufen sein.
+  // Ausgegeben wird sie ohnehin nur hinter dem Passwort.
+  const exp = iat + 60 * 60 * 12;
 
   const payload = {
     appKey: SDK_KEY,
