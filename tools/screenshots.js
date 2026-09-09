@@ -14,14 +14,14 @@ const fs = require('fs');
 const BASE = process.env.CUELIGHT_URL || 'http://127.0.0.1:4000';
 const OUT = path.join(__dirname, '..', 'assets');
 const FFMPEG = process.env.FFMPEG || 'ffmpeg';
-const BREITE_GIF = 393;   // Breite des GIF in Pixeln
+const BREITE_GIF = 480;   // Breite des GIF in Pixeln
 const START = 2.2;        // Sekunden am Anfang wegschneiden (Seitenaufbau)
 const DAUER = 18.5;        // Laenge des fertigen GIF
 
-// Hochformat: So wird CueLight in der Praxis benutzt - ein Gerät, das
-// hochkant am Pult steht. Das zweispaltige Querformat ist ein Sonderfall
-// und muss im Bild nicht vorkommen.
-const PAD = { width: 393, height: 852 };
+// iPad im Hochformat: So wird CueLight in der Praxis benutzt - ein Gerät,
+// das hochkant am Pult steht. Das zweispaltige Querformat ist ein
+// Sonderfall und muss im Bild nicht vorkommen.
+const PAD = { width: 820, height: 1180 };
 
 function meldung(id, name, sekunden, offen = false) {
   return [id, { name, muted: !offen, since: Date.now() - sekunden * 1000, userId: id }];
