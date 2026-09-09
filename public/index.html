@@ -566,18 +566,14 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Bewusst ohne Hoehenbegrenzung: Wie viele Namen erscheinen, regelt
+     allein MAX_NAMEN im Skript. Eine zusaetzliche max-height haette den
+     Block stumm abgeschnitten - samt der Zeile "+ N weitere", die ja
+     gerade sagen soll, dass etwas fehlt. */
   #attendees {
     flex: none;
-    max-height: 40%;
-    overflow: hidden;
     border-top: 1px solid var(--line);
     padding-top: 1.2vh;
-  }
-
-  #attendeesCount {
-    color: var(--muted);
-    font-size: clamp(11px, 1.2vw, 14px);
-    margin-bottom: 0.8vh;
   }
 
   #attendeeNames {
@@ -617,7 +613,6 @@
     white-space: pre-line;
     color: var(--line);
     font-size: clamp(12px, 1.2vw, 15px);
-    color: var(--line);
     font-variant-numeric: tabular-nums;
   }
 
@@ -994,7 +989,6 @@
         <div class="cl-sub" id="emptySub"></div>
       </div>
       <div id="attendees" style="display:none;">
-        <div id="attendeesCount"></div>
         <div id="attendeeNames"></div>
       </div>
     </div>
@@ -1045,7 +1039,6 @@
     const emptySubEl = document.getElementById('emptySub');
     const clockEl = document.getElementById('clock');
     const attendeesEl = document.getElementById('attendees');
-    const attendeesCountEl = document.getElementById('attendeesCount');
     const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
 
@@ -1055,13 +1048,17 @@
     const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
 
     // Mit ?namen=0 bleibt die Teilnehmerliste im Ruhezustand aus - fuer
-    // Geraete, auf die auch Publikum schauen kann.
-    const NAMEN_ZEIGEN = new URLSearchParams(window.location.search).get('namen') !== '0';
+    // Geraete, auf die auch Publikum schauen kann; ?namen=1 schaltet sie
+    // wieder ein. Die Einstellung wird gemerkt, weil eine zum
+    // Startbildschirm hinzugefuegte Web-App immer ohne Parameter startet -
+    // ausgerechnet auf dem Buehnengeraet haette der Schalter sonst keine
+    // Wirkung. Siehe merkeNamensschalter() weiter unten.
+    let NAMEN_ZEIGEN = true;
 
     // Mehr Namen passen ohnehin nicht sinnvoll auf einen Blick; der Rest
     // wird gezaehlt statt gescrollt - eine Anzeige, die niemand bedient,
     // hat vom Scrollen nichts.
-    const MAX_NAMEN = 20;
+    const MAX_NAMEN = 16;
 
     function log(...args) {
       console.log('[CueLight]', ...args);
@@ -1286,9 +1283,6 @@
       if (kennung === letzteNamen) return;
       letzteNamen = kennung;
 
-      // Thema und Meeting-Nummer stehen schon unter der Uhr.
-      attendeesCountEl.textContent = `${teilnehmer.length} Teilnehmende`;
-
       attendeeNamesEl.innerHTML = '';
       const sichtbar = sortiert.slice(0, MAX_NAMEN);
       for (const t of sichtbar) {
@@ -1318,9 +1312,13 @@
         emptySubEl.textContent = '';
         return;
       }
-      emptySubEl.textContent = meetingTopic
+      const kopf = meetingTopic
         ? `Meeting ${currentMeetingNumber} · ${meetingTopic}`
         : `Meeting ${currentMeetingNumber}`;
+      // Die Anzahl steht hier und nicht ueber der Namensliste: Sonst waere
+      // sie mit ?namen=0 gleich mit verschwunden, obwohl an ihr nichts
+      // Heikles ist.
+      emptySubEl.textContent = `${kopf}\n${totalAttendees} Teilnehmende`;
     }
 
     function buildRowElement() {
@@ -2057,6 +2055,7 @@
       if (meetingNumber) url.searchParams.set('meeting', meetingNumber);
       if (password) url.searchParams.set('password', password);
       if (displayName) url.searchParams.set('name', displayName);
+      if (!NAMEN_ZEIGEN) url.searchParams.set('namen', '0');
       document.getElementById('bookmarkLink').value = meetingNumber ? url.toString() : '';
     }
     document.getElementById('meetingNumber').addEventListener('input', updateBookmarkLink);
@@ -2093,6 +2092,7 @@
     // sich CueLight Nummer und Passwort selbst. Nebeneffekt: das Passwort
     // steht nicht mehr zwingend in einer URL, die im Verlauf landet.
     const STORE_KEY = 'cuelight:last-meeting';
+    const NAMEN_KEY = 'cuelight:namen';
     // Name, unter dem CueLight dem Meeting beitritt, wenn nichts anderes
     // eingetragen ist.
     const STANDARD_NAME = 'CueLight';
@@ -2116,6 +2116,22 @@
         return null;
       }
     }
+
+    // Namensliste: Parameter schlaegt Gemerktes, Gemerktes schlaegt
+    // Voreinstellung (an).
+    (function merkeNamensschalter() {
+      const wunsch = new URLSearchParams(window.location.search).get('namen');
+      try {
+        if (wunsch === '0' || wunsch === '1') {
+          localStorage.setItem(NAMEN_KEY, wunsch);
+          NAMEN_ZEIGEN = wunsch === '1';
+        } else {
+          NAMEN_ZEIGEN = localStorage.getItem(NAMEN_KEY) !== '0';
+        }
+      } catch {
+        NAMEN_ZEIGEN = wunsch !== '0';
+      }
+    })();
 
     // Als Web-App vom Homescreen gestartet?
     const isStandalone =

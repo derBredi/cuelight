@@ -130,7 +130,8 @@ CueLight einmal frei. Das gilt danach dauerhaft.
   Mikrofone, dann alphabetisch), wobei ein grüner Punkt offene Mikrofone
   markiert. Beides verschwindet, sobald sich jemand meldet. Wenn auch
   Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am Ende der
-  Adresse die Namen aus.
+  Adresse die Namen aus – die Einstellung wird gemerkt, `?namen=1` schaltet
+  sie wieder ein. Die Teilnehmerzahl bleibt in beiden Fällen stehen.
 
 ## Aus dem Internet erreichbar? Dann absichern
 

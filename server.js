@@ -535,11 +535,22 @@ app.get('/oauth/status', async (req, res) => {
   // Formular am Veranstaltungstag gruen aus, und erst der Beitritt
   // scheitert. Der Aufruf erneuert das Token nebenbei, hält es also
   // frisch, sooft jemand die Seite oeffnet.
-  const accessToken = await getValidAccessToken();
-  res.json({
-    authorized: !!accessToken,
-    account: tokens.account ? tokens.account.email || null : null,
-  });
+  const account = tokens.account ? tokens.account.email || null : null;
+
+  try {
+    const accessToken = await getValidAccessToken();
+    res.json({ authorized: !!accessToken, account });
+  } catch (err) {
+    // Zoom nicht erreichbar (DNS, Zeitlimit, Netz zuckt): Das ist KEIN
+    // Beweis, dass die Freigabe weg ist - es ist Unwissen. Also auf die
+    // gespeicherte Freigabe zurueckfallen, statt den Freigabe-Knopf zu
+    // zeigen und jemanden mitten in der Veranstaltung zu einer neuen
+    // Autorisierung zu schicken. Ohne diesen Block bliebe die Anfrage
+    // ausserdem unbeantwortet, und der Browser wartet bis zum eigenen
+    // Zeitlimit.
+    console.error('Freigabe-Status nicht pruefbar:', err);
+    res.json({ authorized: true, account, unverified: true });
+  }
 });
 
 // --- 3) OBF-Token fuer den eigentlichen Beitritt --------------------------
