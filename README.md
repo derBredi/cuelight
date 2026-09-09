@@ -125,6 +125,12 @@ CueLight einmal frei. Das gilt danach dauerhaft.
   wieder im Meeting.
 - Quer gehaltene Geräte zeigen die Meldungen automatisch in mehreren
   Spalten.
+- Meldet sich niemand, zeigt CueLight die Uhrzeit und wer im Meeting ist –
+  in derselben Reihenfolge wie Zoom selbst (Host, Co-Hosts, offene
+  Mikrofone, dann alphabetisch), wobei ein grüner Punkt offene Mikrofone
+  markiert. Beides verschwindet, sobald sich jemand meldet. Wenn auch
+  Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am Ende der
+  Adresse die Namen aus.
 
 ## Aus dem Internet erreichbar? Dann absichern
 

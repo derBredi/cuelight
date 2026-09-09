@@ -608,7 +608,8 @@
     vertical-align: 0.05em;
   }
 
-  #attendeeNames .cl-more {
+  #attendeeNames .cl-more,
+  #attendeeNames .cl-rolle {
     color: var(--line);
   }
 
@@ -1272,8 +1273,16 @@
       }
       attendeesEl.style.display = '';
 
-      const sortiert = [...teilnehmer].sort((a, b) => a.name.localeCompare(b.name, 'de'));
-      const kennung = sortiert.map((t) => (t.muted ? '' : '*') + t.name).join('|');
+      // Reihenfolge wie in Zooms eigener Teilnehmerliste: Host, Co-Hosts,
+      // offene Mikrofone, dann der Rest - innerhalb jeder Gruppe
+      // alphabetisch. Zwei Gruppen aus Zooms Liste entfallen hier: "man
+      // selbst" ist CueLight (wird herausgefiltert), und gehobene Haende
+      // stehen als Kacheln ohnehin nicht in dieser Ansicht.
+      const gruppe = (t) => (t.host ? 0 : t.coHost ? 1 : t.muted ? 3 : 2);
+      const sortiert = [...teilnehmer].sort(
+        (a, b) => gruppe(a) - gruppe(b) || a.name.localeCompare(b.name, 'de')
+      );
+      const kennung = sortiert.map((t) => gruppe(t) + t.name).join('|');
       if (kennung === letzteNamen) return;
       letzteNamen = kennung;
 
@@ -1286,6 +1295,14 @@
         const el = document.createElement('div');
         if (!t.muted) el.className = 'cl-open';
         el.textContent = t.name;
+        // Sehr leise angehaengt - erklaert die Reihenfolge und beantwortet
+        // nebenbei die Frage, wer im Meeting eigentlich Rechte hat.
+        if (t.host || t.coHost) {
+          const rolle = document.createElement('span');
+          rolle.className = 'cl-rolle';
+          rolle.textContent = t.host ? ' · Host' : ' · Co-Host';
+          el.appendChild(rolle);
+        }
         attendeeNamesEl.appendChild(el);
       }
       if (sortiert.length > MAX_NAMEN) {
@@ -1572,6 +1589,8 @@
           teilnehmer = andere.map((a) => ({
             name: a.userName || 'Unbekannt',
             muted: a.muted !== false,
+            host: Boolean(a.isHost),
+            coHost: Boolean(a.isCoHost),
           }));
           lastSuccessfulPollAt = Date.now();
           hasEverConnected = true; // Sicherheitsnetz, falls onMeetingStatus mal ausbleibt
