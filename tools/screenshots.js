@@ -38,6 +38,13 @@ async function boardVorbereiten(page, meldungen) {
     // Meeting-Nummern haben darin nichts verloren.
     currentMeetingNumber = '12345678901';
     meetingTopic = 'Beispiel-Versammlung';
+    // Fuer den Ruhezustand am Ende des Films: Uhr und Teilnehmerliste.
+    teilnehmer = [
+      'Anna Weber', 'Thomas Krüger', 'Miriam Lang', 'Jonas Behrend',
+      'Peter Adam', 'Sabine Reuter', 'Klaus Berger', 'Ute Hoffmann',
+      'Martin Vogel', 'Elke Neumann', 'Rita Sommer', 'Bernd Kaiser',
+      'Lena Fuchs', 'Otto Braun',
+    ].map((name) => ({ name, muted: true }));
     raisedHands.clear();
     listEl.innerHTML = '';
     rowElements.clear();

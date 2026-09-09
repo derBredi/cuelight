@@ -118,6 +118,9 @@
        Scrollbereichs abgeschnitten wird. */
     --glow-room: 12px;
     --focus: #9ec7ff;
+    /* Uhr im Ruhezustand: lesbar, wenn man hinsieht - unauffaellig, wenn
+       man es nicht tut. */
+    --clock: #6f6f8c;
 
     /* Einmal definiert, ueberall verwendet - vorher stand die Schrift an
        drei Stellen ausgeschrieben. */
@@ -531,22 +534,87 @@
     height: 100%;
   }
 
+  /* Ruhezustand: Uhr in der Mitte, Teilnehmende unten. Alles bewusst
+     gedaempft - auf diesem Bildschirm darf nur eine Wortmeldung um
+     Aufmerksamkeit werben. */
   #empty-state {
     flex: 1;
     min-height: 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
+  }
+
+  #idleMain {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 8px;
     text-align: center;
+  }
+
+  /* Bewusst OHNE Sekunden: Auf dieser Anzeige bedeutet Bewegung "jemand
+     meldet sich". Eine im Sekundentakt springende Ziffer wuerde das
+     Auge daran gewoehnen, Bewegung hier zu ignorieren. */
+  #clock {
+    font-size: clamp(48px, min(16vw, 22vh), 150px);
+    font-weight: 300;
+    line-height: 1;
+    letter-spacing: 0.01em;
+    color: var(--clock);
+    font-variant-numeric: tabular-nums;
+  }
+
+  #attendees {
+    flex: none;
+    max-height: 40%;
+    overflow: hidden;
+    border-top: 1px solid var(--line);
+    padding-top: 1.2vh;
+  }
+
+  #attendeesCount {
     color: var(--muted);
-    font-size: clamp(18px, 2.2vw, 28px);
-    letter-spacing: 0.02em;
+    font-size: clamp(11px, 1.2vw, 14px);
+    margin-bottom: 0.8vh;
+  }
+
+  #attendeeNames {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 2px 16px;
+    color: var(--muted);
+    font-size: clamp(12px, 1.4vw, 16px);
+    line-height: 1.5;
+  }
+
+  #attendeeNames div {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Offenes Mikrofon: faellt im Ruhezustand auf, ohne zu draengen - so
+     sieht man auch jemanden, der spricht, ohne die Hand gehoben zu haben. */
+  #attendeeNames .cl-open::before {
+    content: "";
+    display: inline-block;
+    width: 0.5em;
+    height: 0.5em;
+    margin-right: 0.45em;
+    border-radius: 50%;
+    background: var(--speak);
+    vertical-align: 0.05em;
+  }
+
+  #attendeeNames .cl-more {
+    color: var(--line);
   }
 
   #empty-state .cl-sub {
     white-space: pre-line;
+    color: var(--line);
     font-size: clamp(12px, 1.2vw, 15px);
     color: var(--line);
     font-variant-numeric: tabular-nums;
@@ -920,8 +988,14 @@
     </div>
 
     <div id="empty-state">
-      <div>Aktuell meldet sich niemand</div>
-      <div class="cl-sub" id="emptySub"></div>
+      <div id="idleMain">
+        <div id="clock">--:--</div>
+        <div class="cl-sub" id="emptySub"></div>
+      </div>
+      <div id="attendees" style="display:none;">
+        <div id="attendeesCount"></div>
+        <div id="attendeeNames"></div>
+      </div>
     </div>
 
     <div id="list" style="display:none;"></div>
@@ -968,12 +1042,25 @@
     const connectionTextEl = connectionBannerEl.querySelector('span');
     const toastsEl = document.getElementById('toasts');
     const emptySubEl = document.getElementById('emptySub');
+    const clockEl = document.getElementById('clock');
+    const attendeesEl = document.getElementById('attendees');
+    const attendeesCountEl = document.getElementById('attendeesCount');
+    const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
 
     // ?debug=1 blendet die Diagnosezeile ein und schaltet die ausfuehrliche
     // Protokollierung frei. Ohne das schreibt CueLight bei einer zweistuendigen
     // Veranstaltung sonst gut 2400 Rohdatensaetze in die Konsole.
     const DEBUG = new URLSearchParams(window.location.search).get('debug') === '1';
+
+    // Mit ?namen=0 bleibt die Teilnehmerliste im Ruhezustand aus - fuer
+    // Geraete, auf die auch Publikum schauen kann.
+    const NAMEN_ZEIGEN = new URLSearchParams(window.location.search).get('namen') !== '0';
+
+    // Mehr Namen passen ohnehin nicht sinnvoll auf einen Blick; der Rest
+    // wird gezaehlt statt gescrollt - eine Anzeige, die niemand bedient,
+    // hat vom Scrollen nichts.
+    const MAX_NAMEN = 20;
 
     function log(...args) {
       console.log('[CueLight]', ...args);
@@ -1085,6 +1172,7 @@
       boardEl.classList.toggle('cl-can-unmute', isHostOrCoHost);
 
       if (raisedHands.size === 0) {
+        renderIdle();
         emptyEl.style.display = '';
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
@@ -1159,20 +1247,63 @@
       overflowEl.style.display = hidden > 0 ? 'block' : 'none';
     }
 
+    let teilnehmer = [];
+
     // Meeting-Angaben stehen in der Mitte, solange sich niemand meldet -
     // damit braucht es keinen eigenen Info-Knopf mehr, der dieselben Daten
     // noch einmal als Meldung eingeblendet haette.
     let meetingTopic = '';
+
+    // Zeichnet Uhr und Teilnehmerliste. Die Namensliste wird nur neu
+    // aufgebaut, wenn sie sich tatsaechlich geaendert hat - render() laeuft
+    // jede Sekunde, und ein staendig neu gebautes Namensraster waere
+    // verschwendete Arbeit.
+    let letzteNamen = '';
+
+    function renderIdle() {
+      const jetzt = new Date();
+      clockEl.textContent =
+        String(jetzt.getHours()).padStart(2, '0') + ':' +
+        String(jetzt.getMinutes()).padStart(2, '0');
+
+      if (!NAMEN_ZEIGEN || teilnehmer.length === 0) {
+        attendeesEl.style.display = 'none';
+        return;
+      }
+      attendeesEl.style.display = '';
+
+      const sortiert = [...teilnehmer].sort((a, b) => a.name.localeCompare(b.name, 'de'));
+      const kennung = sortiert.map((t) => (t.muted ? '' : '*') + t.name).join('|');
+      if (kennung === letzteNamen) return;
+      letzteNamen = kennung;
+
+      // Thema und Meeting-Nummer stehen schon unter der Uhr.
+      attendeesCountEl.textContent = `${teilnehmer.length} Teilnehmende`;
+
+      attendeeNamesEl.innerHTML = '';
+      const sichtbar = sortiert.slice(0, MAX_NAMEN);
+      for (const t of sichtbar) {
+        const el = document.createElement('div');
+        if (!t.muted) el.className = 'cl-open';
+        el.textContent = t.name;
+        attendeeNamesEl.appendChild(el);
+      }
+      if (sortiert.length > MAX_NAMEN) {
+        const rest = document.createElement('div');
+        rest.className = 'cl-more';
+        rest.textContent = `+ ${sortiert.length - MAX_NAMEN} weitere`;
+        attendeeNamesEl.appendChild(rest);
+      }
+    }
 
     function renderEmptySub() {
       if (!currentMeetingNumber) {
         emptySubEl.textContent = '';
         return;
       }
-      const head = meetingTopic
+      emptySubEl.textContent = meetingTopic
         ? `Meeting ${currentMeetingNumber} · ${meetingTopic}`
         : `Meeting ${currentMeetingNumber}`;
-      emptySubEl.textContent = `${head}\n${totalAttendees} Teilnehmende`;
     }
 
     function buildRowElement() {
@@ -1435,7 +1566,13 @@
           }
 
           // CueLight selbst nicht mitzaehlen.
-          totalAttendees = attendees.filter((a) => !a.self).length;
+          const andere = attendees.filter((a) => !a.self);
+          totalAttendees = andere.length;
+          // Fuer den Ruhezustand merken - die Daten sind ohnehin da.
+          teilnehmer = andere.map((a) => ({
+            name: a.userName || 'Unbekannt',
+            muted: a.muted !== false,
+          }));
           lastSuccessfulPollAt = Date.now();
           hasEverConnected = true; // Sicherheitsnetz, falls onMeetingStatus mal ausbleibt
           hideConnectionWarning();
