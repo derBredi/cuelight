@@ -552,6 +552,22 @@
     flex-direction: column;
   }
 
+  #connecting {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    text-align: center;
+  }
+
+  .cl-connecting-text {
+    color: var(--muted);
+    font-size: clamp(18px, 2.2vw, 28px);
+    letter-spacing: 0.02em;
+  }
+
   #idleMain {
     flex: 1;
     display: flex;
@@ -1004,6 +1020,13 @@
         <div id="clock">--:--</div>
         <div class="cl-sub" id="emptySub"></div>
       </div>
+      <!-- Steht anstelle von Uhr und Teilnehmerzahl, solange keine
+           Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmende" saehe
+           aus, als liefe alles normal. -->
+      <div id="connecting" style="display:none;">
+        <div class="cl-connecting-text">Verbinde mit dem Meeting …</div>
+        <div class="cl-sub" id="connectingSub"></div>
+      </div>
       <div id="attendees" style="display:none;">
         <div id="attendeeNames"></div>
       </div>
@@ -1054,6 +1077,9 @@
     const toastsEl = document.getElementById('toasts');
     const emptySubEl = document.getElementById('emptySub');
     const clockEl = document.getElementById('clock');
+    const idleMainEl = document.getElementById('idleMain');
+    const connectingEl = document.getElementById('connecting');
+    const connectingSubEl = document.getElementById('connectingSub');
     const attendeesEl = document.getElementById('attendees');
     const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
@@ -1188,6 +1214,14 @@
       if (raisedHands.size === 0) {
         renderIdle();
         emptyEl.style.display = '';
+        // Uhr und Teilnehmerliste erst, wenn wirklich eine Verbindung steht.
+        idleMainEl.style.display = hasEverConnected ? '' : 'none';
+        attendeesEl.style.display =
+          hasEverConnected && NAMEN_ZEIGEN && teilnehmer.length > 0 ? '' : 'none';
+        connectingEl.style.display = hasEverConnected ? 'none' : '';
+        connectingSubEl.textContent = currentMeetingNumber
+          ? `Meeting ${currentMeetingNumber}`
+          : '';
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
         overflowEl.style.display = 'none';
@@ -1528,12 +1562,24 @@
       // Mit ?setup=1, damit nach dem Verlassen das Formular erscheint und
       // nicht sofort wieder automatisch beigetreten wird.
       const leaveUrl = window.location.origin + window.location.pathname + '?setup=1';
+      stoppeBeitrittsWaechter();
+
+      // Wer nie beigetreten ist, kann auch nicht verlassen - dann direkt
+      // zurueck zum Formular, statt eine Fehlermeldung zu zeigen, die den
+      // Bedienenden festhaelt.
+      if (!hasEverConnected) {
+        window.location.href = leaveUrl;
+        return;
+      }
+
       ZoomMtg.leaveMeeting({
         leaveUrl,
         success: () => log('Meeting verlassen.'),
         error: (err) => {
           log('Verlassen fehlgeschlagen:', err);
-          toast('Konnte das Meeting nicht verlassen.', { error: true });
+          // Auch hier nicht steckenbleiben: Die Seite verlaesst das Meeting
+          // notfalls dadurch, dass sie neu geladen wird.
+          window.location.href = leaveUrl;
         },
       });
     });
@@ -1706,6 +1752,46 @@
     let lastSuccessfulPollAt = Date.now();
     let joinedAt = 0;
     let hasEverConnected = false;
+    // Zeitpunkt des join()-Aufrufs - NICHT des erfolgreichen Beitritts.
+    let beitrittVersuchtAb = 0;
+    let beitrittsWaechter = null;
+
+    // Der Erfolgs-Rueckruf von join() kommt in zwei Faellen nie: wenn der
+    // Host noch nicht im Meeting ist und wenn das Meeting-Passwort falsch
+    // ist. Zoom meldet dann gar nichts - kein Fehler, kein Status. Deshalb
+    // ein eigener Zeitgeber, der nicht davon abhaengt, dass das SDK sich
+    // meldet.
+    function starteBeitrittsWaechter() {
+      beitrittVersuchtAb = Date.now();
+      stoppeBeitrittsWaechter();
+      beitrittsWaechter = setInterval(() => {
+        if (hasEverConnected) {
+          stoppeBeitrittsWaechter();
+          return;
+        }
+        const sekunden = (Date.now() - beitrittVersuchtAb) / 1000;
+        if (sekunden < 10) return;
+        if (sekunden < 45) {
+          showConnectionWarning(
+            'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
+            { waiting: true }
+          );
+        } else {
+          showConnectionWarning(
+            'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
+            'noch nicht im Meeting, das Meeting-Passwort stimmt nicht, oder ' +
+            'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
+            'CueLight freigegeben ist.',
+            { waiting: true }
+          );
+        }
+      }, 1000);
+    }
+
+    function stoppeBeitrittsWaechter() {
+      if (beitrittsWaechter) clearInterval(beitrittsWaechter);
+      beitrittsWaechter = null;
+    }
     let pollTimer = null;
 
     function stopPolling() {
@@ -1814,8 +1900,8 @@
           // Noch nie verbunden gewesen: ganz normal, wenn das Meeting noch
           // nicht gestartet ist oder ein Warteraum aktiv ist - deshalb
           // erstmal neutral formulieren, nicht wie ein Fehler.
-          const secondsSinceJoin = (Date.now() - joinedAt) / 1000;
-          if (secondsSinceJoin < 60) {
+          const secondsSinceJoin = (Date.now() - (beitrittVersuchtAb || joinedAt)) / 1000;
+          if (secondsSinceJoin < 45) {
             showConnectionWarning(
               'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
               { waiting: true }
@@ -2026,6 +2112,12 @@
             log('checkFeatureRequirements fehlgeschlagen:', err);
           }
 
+          // Bewusst VOR dem Beitritt angemeldet: Frueher stand das im
+          // Erfolgs-Rueckruf, und der kommt in genau den Faellen nie, in
+          // denen man eine Statusmeldung am dringendsten braucht.
+          ZoomMtg.inMeetingServiceListener('onMeetingStatus', handleMeetingStatus);
+          starteBeitrittsWaechter();
+
           ZoomMtg.join({
             signature,
             meetingNumber,
@@ -2034,12 +2126,22 @@
             obfToken,
             success: () => {
               log('Beigetreten. Warte auf Teilnehmer-Events …');
-              hideZoomChrome();
-              fetchMeetingTopic();
+              // ZUERST den Zustand setzen, dann erst alles Optionale: Wirft
+              // eine der folgenden Funktionen (z. B. weil eine kuenftige
+              // SDK-Version etwas umbenennt), bliebe die Anzeige sonst auf
+              // "Verbinde …" stehen, obwohl die Verbindung laengst steht.
               joinedAt = Date.now();
               lastSuccessfulPollAt = Date.now();
-              requestWakeLock();
-              ZoomMtg.inMeetingServiceListener('onMeetingStatus', handleMeetingStatus);
+              hasEverConnected = true;
+              stoppeBeitrittsWaechter();
+              hideConnectionWarning();
+              try {
+                hideZoomChrome();
+                fetchMeetingTopic();
+                requestWakeLock();
+              } catch (err) {
+                log('Nebensaechliches beim Beitritt fehlgeschlagen:', err);
+              }
 
               // Direkt beim Join einmal Liste holen
               refreshFromAttendeeList();
@@ -2063,6 +2165,7 @@
             },
             error: (err) => {
               console.error('Join-Fehler:', err);
+              stoppeBeitrittsWaechter();
               // Zooms eigene Fehlermeldung mit anzeigen - ohne sie ist jede
               // Fehlersuche Raterei.
               const detail = [err && err.errorCode, err && (err.reason || err.message)]
