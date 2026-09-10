@@ -271,6 +271,14 @@
     color: var(--muted);
   }
 
+  #version {
+    max-width: 420px;
+    margin: 10px auto 0;
+    text-align: right;
+    font-size: 11px;
+    color: var(--line);
+  }
+
   #setupCard details summary {
     cursor: pointer;
     padding: 4px 0;
@@ -954,7 +962,7 @@
     </div>
 
     <details>
-      <summary>Lesezeichen-Link</summary>
+      <summary>Lesezeichen-Link und Zoom-Freigabe</summary>
 
       <label for="bookmarkLink">Lesezeichen-Link (startet direkt)</label>
       <input id="bookmarkLink" readonly />
@@ -964,7 +972,15 @@
         so auch im Browser-Verlauf. Nur auf Geraeten speichern, die du selbst
         kontrollierst.
       </p>
+
+      <label>Zoom-Freigabe</label>
+      <button id="resetAuthBtn" type="button">Freigabe zurücksetzen</button>
+      <p class="cl-hint">
+        Hebt die Freigabe des Zoom-Kontos auf, damit ein anderes Konto
+        autorisieren kann. Meeting-Daten bleiben erhalten.
+      </p>
     </details>
+    <div id="version"></div>
    </div>
   </div>
 
@@ -1738,6 +1754,36 @@
       authNeededEl.style.display = 'block';
     }
 
+    // Zwei Stufen wie beim Verlassen-Knopf: Ein versehentlicher Tipp soll
+    // nicht die Freigabe wegwerfen.
+    const resetAuthBtn = document.getElementById('resetAuthBtn');
+    let resetArmed = null;
+
+    resetAuthBtn.addEventListener('click', async () => {
+      if (!resetArmed) {
+        resetAuthBtn.textContent = 'Wirklich zurücksetzen?';
+        resetArmed = setTimeout(() => {
+          resetAuthBtn.textContent = 'Freigabe zurücksetzen';
+          resetArmed = null;
+        }, 4000);
+        return;
+      }
+      clearTimeout(resetArmed);
+      resetArmed = null;
+      resetAuthBtn.disabled = true;
+      try {
+        const res = await fetch('/oauth/reset', { method: 'POST' });
+        if (!res.ok) throw new Error('Server antwortet mit ' + res.status);
+        toast('Freigabe zurückgesetzt. Jetzt kann ein anderes Zoom-Konto freigeben.');
+        await checkAuthorization(window.location.origin);
+      } catch (err) {
+        toast('Zurücksetzen fehlgeschlagen: ' + err.message, { error: true });
+      } finally {
+        resetAuthBtn.disabled = false;
+        resetAuthBtn.textContent = 'Freigabe zurücksetzen';
+      }
+    });
+
     async function checkAuthorization(serverUrl) {
       try {
         const res = await fetch(`${serverUrl.replace(/\/$/, '')}/oauth/status`);
@@ -2082,6 +2128,16 @@
     // steht der Freigabe-Knopf bereit, BEVOR jemand vergeblich auf
     // "starten" tippt.
     checkAuthorization(window.location.origin);
+
+    // Laufende Fassung klein unten anzeigen - hilft bei jeder Fehlermeldung.
+    fetch('/api/version')
+      .then((r) => r.json())
+      .then((d) => {
+        if (d && d.version) {
+          document.getElementById('version').textContent = 'CueLight ' + d.version;
+        }
+      })
+      .catch(() => {});
 
     // ---------------------------------------------------------------
     // Zuletzt genutztes Meeting merken

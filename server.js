@@ -16,6 +16,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const { version: PACKAGE_VERSION } = require('./package.json');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
 
@@ -173,7 +174,11 @@ setInterval(() => {
 // -------------------------------------------------------------------
 // Basis-Middleware
 // -------------------------------------------------------------------
-app.get('/healthz', (req, res) => res.json({ ok: true }));
+// Beim Bauen des Images setzt der Workflow CUELIGHT_VERSION auf den
+// Git-Tag - dann stimmt die Anzeige auch ohne Handarbeit in package.json.
+const VERSION = process.env.CUELIGHT_VERSION || PACKAGE_VERSION;
+
+app.get('/healthz', (req, res) => res.json({ ok: true, version: VERSION }));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -279,21 +284,9 @@ app.use((req, res, next) => {
   const cookies = parseCookies(req);
   if (safeEqual(cookies.cl_access || '', ACCESS_COOKIE)) return next();
 
-  // ?k=... funktioniert weiterhin, z. B. fuer ein vorbereitetes Lesezeichen.
-  // Ein "+" im Schluessel kommt in der Query als Leerzeichen an - deshalb
-  // beide Schreibweisen pruefen.
-  const raw = typeof req.query.k === 'string' ? req.query.k : '';
-  if (raw && (safeEqual(raw, ACCESS_TOKEN) || safeEqual(raw.replace(/ /g, '+'), ACCESS_TOKEN))) {
-    setCookie(res, 'cl_access', ACCESS_COOKIE, {
-      maxAge: 60 * 60 * 24 * 365,
-      secure: isSecure(req),
-    });
-    // Schluessel wieder aus der URL nehmen, damit er nicht in Lesezeichen,
-    // Verlauf oder Screenshots stehen bleibt.
-    const url = new URL(req.originalUrl, 'http://localhost');
-    url.searchParams.delete('k');
-    return res.redirect(url.pathname + (url.search || ''));
-  }
+  // Kein Passwort per ?k= in der Adresse: Das landet im Browser-Verlauf,
+  // in Proxy-Protokollen und auf Screenshots. Angemeldet wird sich ueber
+  // die Seite /unlock, das Ergebnis merkt sich der Browser.
 
   // Normaler Seitenaufruf -> Entsperr-Formular. API-Aufrufe bekommen
   // weiterhin eine kurze, maschinenlesbare Antwort.
@@ -523,6 +516,19 @@ app.get('/oauth/callback', async (req, res) => {
     console.error('Fehler in /oauth/callback:', err);
     res.status(500).send('Unerwarteter Fehler beim Verarbeiten der Zoom-Freigabe, siehe Server-Log.');
   }
+});
+
+// Wird im Einrichtungsformular klein unten angezeigt - damit bei einer
+// Fehlermeldung sofort klar ist, welche Fassung laeuft.
+app.get('/api/version', (req, res) => res.json({ version: VERSION }));
+
+// Zoom-Freigabe zuruecksetzen, damit ein anderes Konto autorisieren kann.
+// Vorher musste man dafuer data/zoom-oauth-tokens.json im Volume loeschen -
+// fuer jemanden, der nur Docker bedient, eine unnoetige Huerde.
+app.post('/oauth/reset', (req, res) => {
+  clearTokens();
+  console.log('Zoom-Freigabe zurueckgesetzt.');
+  res.json({ ok: true });
 });
 
 // Fuer die Anzeige im Board: ist der Host schon einmalig freigegeben?

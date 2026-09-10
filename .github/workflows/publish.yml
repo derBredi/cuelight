@@ -56,6 +56,80 @@ jobs:
             # soll nicht bei allen Nutzern automatisch mitgezogen werden.
             type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
+      # Erst nur fuer die eigene Architektur bauen und in den lokalen
+      # Docker laden - damit der Rauchtest unten ein echtes Image starten
+      # kann, bevor irgendetwas veroeffentlicht wird.
+      - name: Image zum Testen bauen
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: cuelight:test
+          build-args: |
+            VERSION=${{ github.ref_name }}
+
+      # Rauchtest: kein echter Funktionstest, sondern die Pruefung, dass das
+      # Image ueberhaupt anlaeuft und die wichtigsten Routen antworten. Ohne
+      # das koennte ein Image veroeffentlicht werden, das gar nicht startet -
+      # und weil Nutzer "latest" ziehen, haetten sie es sofort im Einsatz.
+      - name: Rauchtest
+        run: |
+          set -euo pipefail
+          docker run -d --name cuelight-test -p 4000:4000 \
+            -e ZOOM_CLIENT_ID=test -e ZOOM_CLIENT_SECRET=test \
+            -e CUELIGHT_PASSWORD=testpasswort \
+            cuelight:test
+
+          echo "Warten, bis der Dienst antwortet ..."
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/healthz > /dev/null; then break; fi
+            if [ "$i" = "30" ]; then
+              echo "FEHLER: Dienst antwortet nach 30s nicht."
+              docker logs cuelight-test
+              exit 1
+            fi
+            sleep 1
+          done
+
+          pruefe() { # Beschreibung, erwarteter Status, curl-Argumente
+            beschreibung="$1"; erwartet="$2"; shift 2
+            ist=$(curl -s -o /dev/null -w '%{http_code}' "$@")
+            if [ "$ist" != "$erwartet" ]; then
+              echo "FEHLER: $beschreibung -> $ist erwartet $erwartet"
+              docker logs cuelight-test
+              exit 1
+            fi
+            echo "ok: $beschreibung ($ist)"
+          }
+
+          pruefe "Healthcheck" 200 http://127.0.0.1:4000/healthz
+          pruefe "Seite ohne Anmeldung wird umgeleitet" 302 \
+            -H 'Accept: text/html' http://127.0.0.1:4000/
+          pruefe "Anmeldeseite erreichbar" 200 \
+            -H 'Accept: text/html' http://127.0.0.1:4000/unlock
+          pruefe "Anmeldung mit richtigem Passwort" 302 \
+            -X POST -d 'key=testpasswort' http://127.0.0.1:4000/unlock
+          pruefe "Anmeldung mit falschem Passwort" 401 \
+            -X POST -d 'key=falsch' http://127.0.0.1:4000/unlock
+
+          # Angemeldet weiterpruefen
+          keks=$(curl -s -D- -o /dev/null -X POST -d 'key=testpasswort' \
+            http://127.0.0.1:4000/unlock | grep -i '^set-cookie' \
+            | sed 's/.*cl_access=\([^;]*\).*/\1/' | tr -d '\r')
+          pruefe "Startseite angemeldet" 200 -H "Cookie: cl_access=$keks" \
+            http://127.0.0.1:4000/
+          pruefe "Versionsauskunft" 200 -H "Cookie: cl_access=$keks" \
+            http://127.0.0.1:4000/api/version
+          pruefe "Unsinnige Meeting-Nummer wird abgelehnt" 400 \
+            -H "Cookie: cl_access=$keks" -H 'Content-Type: application/json' \
+            -X POST -d '{"meetingNumber":"12"}' http://127.0.0.1:4000/api/signature
+          pruefe "Gueltige Meeting-Nummer bekommt eine Signatur" 200 \
+            -H "Cookie: cl_access=$keks" -H 'Content-Type: application/json' \
+            -X POST -d '{"meetingNumber":"12345678901"}' http://127.0.0.1:4000/api/signature
+
+          docker rm -f cuelight-test > /dev/null
+          echo "Rauchtest bestanden."
+
       - name: Bauen und veröffentlichen (amd64 + arm64)
         uses: docker/build-push-action@v5
         with:
@@ -64,3 +138,5 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ github.ref_name }}

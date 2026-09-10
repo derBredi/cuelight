@@ -46,7 +46,14 @@ sitzt. Zwei verbreitete Wege:
 - **Cloudflare Tunnel** (`cloudflared`): Braucht keine offenen Ports am
   Router und bringt das Zertifikat mit. Zu Hause meist der bequemste Weg.
 - **Ein Reverse-Proxy** wie Caddy, nginx Proxy Manager oder Traefik mit
-  einem Zertifikat von Let's Encrypt.
+  einem Zertifikat von Let's Encrypt. Bei Caddy sind es zwei Zeilen im
+  `Caddyfile`, das Zertifikat besorgt er sich selbst:
+
+  ```
+  cuelight.deine-domain.de {
+      reverse_proxy 127.0.0.1:4000
+  }
+  ```
 
 Beide Wege setzen eine eigene Domain voraus. Zum ersten Ausprobieren geht
 es auch ohne: Direkt auf dem Server selbst funktioniert
@@ -98,6 +105,9 @@ starten** tippen.
 Beim allerersten Mal erscheint ein blauer Knopf, der dich zu Zoom
 schickt. Dort meldest du dich mit dem Konto an, das die Meetings hostet,
 und gibst CueLight einmal frei. Das gilt danach dauerhaft.
+
+Probier das einmal vorab aus – mit dem Gerät und der Adresse, die später
+wirklich zum Einsatz kommen, und nicht erst am Veranstaltungstag.
 
 ## Bedienen
 
@@ -152,6 +162,17 @@ Reverse-Proxy mit Passwortschutz oder ein VPN –, dann lass
 
 Nach einem Neustart des Servers startet CueLight von selbst wieder mit.
 
+**Auf eine ältere Fassung zurück:** In der `docker-compose.yml` statt
+`:latest` eine feste Version eintragen, etwa
+`ghcr.io/derbredi/cuelight:1.2.5`, dann `docker compose up -d`. Alle
+Versionen bleiben dauerhaft verfügbar. Welche gerade läuft, steht klein
+unten im Einrichtungsformular. Vor einer wichtigen Veranstaltung lohnt es
+sich, die getestete Version festzunageln statt `:latest` zu ziehen.
+
+**Backup:** Es genügt, die `docker-compose.yml` und den Ordner `data/` zu
+sichern. Beachte dabei: In `data/` liegt der Zoom-Zugang – das Backup ist
+also so schützenswert wie ein Passwort.
+
 ## Wenn etwas nicht klappt
 
 **Der Beitritt schlägt fehl.** Gehört das Meeting zu demselben Zoom-Konto,
@@ -160,32 +181,25 @@ nicht zu.
 
 **Der Beitritt hängt und bricht dann ab.** Steht in der Adresszeile
 `https://`? Ohne Verschlüsselung fehlen dem Browser Funktionen, die Zoom
-zwingend braucht. Ältere Geräte wechseln nicht von selbst auf `https://`,
-dort also die Adresse vollständig eintippen.
-
-**Auf einem Gerät passiert gar nichts.** Öffne dort `zoom.us/wc/join` und
-tritt einem beliebigen Meeting bei – das benutzt dieselbe Technik wie
-CueLight. Klappt das auch nicht, ist das Gerät zu alt, und CueLight kann
-daran nichts ändern. Klappt es dagegen, liegt es nicht am Gerät: Dann
-bitte ein Issue aufmachen, am besten mit dem, was `?debug=1` anzeigt
-(siehe unten).
+zwingend braucht. Ältere Geräte wechseln nicht von selbst, dort also die
+Adresse vollständig eintippen. Passiert auf einem Gerät gar nichts, öffne
+dort `zoom.us/wc/join` und tritt einem beliebigen Meeting bei – das
+benutzt dieselbe Technik. Klappt das auch nicht, ist das Gerät zu alt.
 
 **Freischalten funktioniert nicht.** Dann hat CueLight im Meeting keine
 Host- oder Co-Host-Rechte.
 
-**Gehobene Hände tauchen nicht auf.** Zoom übermittelt das Handzeichen je
-nach Kontotyp unterschiedlich. Öffne die Seite mit `?debug=1` am Ende der
-Adresse: Dann schreibt CueLight mit, was Zoom über die Teilnehmer liefert.
-Bitte öffne damit ein Issue, dann lässt sich die Erkennung ergänzen.
+**Gehobene Hände tauchen nicht auf, oder etwas anderes klemmt.** Öffne die
+Seite mit `?debug=1` am Ende der Adresse: Dann zeigt CueLight
+Fehlermeldungen direkt auf dem Bildschirm an – auch auf einem Tablet, ohne
+Anschluss an einen Rechner – und schreibt mit, was Zoom über die
+Teilnehmer liefert. Damit bitte ein Issue aufmachen.
 
-**Fehlersuche ohne Rechner.** `?debug=1` zeigt Fehlermeldungen auch unten
-auf dem Bildschirm an – so kommst du auf einem Tablet an eine brauchbare
-Meldung, ohne es an einen Computer anschließen zu müssen.
-
-**Anderes Zoom-Konto nötig?** Zoom-Apps lassen sich nicht zwischen Konten
-umziehen. Leg im neuen Konto eine App an (Schritt 1), trag die neuen Werte
-in die `docker-compose.yml` ein, lösche die Datei
-`data/zoom-oauth-tokens.json` und starte den Container neu.
+**Anderes Zoom-Konto nötig?** Im Einrichtungsformular unter
+„Lesezeichen-Link und Zoom-Freigabe" gibt es **Freigabe zurücksetzen**. Danach kann ein
+anderes Konto freigeben. Gehört die Zoom-App selbst zu einem anderen
+Konto, brauchst du dort eine neue App (Schritt 1) und neue Werte in der
+`docker-compose.yml` – Zoom-Apps lassen sich nicht umziehen.
 
 ## Mitmachen
 

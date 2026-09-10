@@ -1,6 +1,6 @@
 {
   "name": "cuelight",
-  "version": "1.0.0",
+  "version": "1.2.6",
   "description": "Grosse, blinkende Anzeige fuer Zoom-Teilnehmer, die sich melden (Hand heben) - fuer Buehnen-/Vortragssituationen.",
   "main": "server.js",
   "scripts": {

@@ -8,6 +8,12 @@ RUN apk add --no-cache su-exec
 
 ENV NODE_ENV=production
 
+# Wird beim Bauen vom Workflow auf den Git-Tag gesetzt. Dadurch zeigt
+# CueLight die tatsaechlich laufende Fassung an, ohne dass jemand die
+# Version in package.json nachpflegen muss.
+ARG VERSION=dev
+ENV CUELIGHT_VERSION=$VERSION
+
 WORKDIR /app
 
 # Erst die Manifeste, damit die Installation gecacht bleibt, solange sich
