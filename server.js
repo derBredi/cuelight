@@ -27,16 +27,9 @@ app.set('trust proxy', 1); // laeuft hinter cloudflared / nginx / Caddy
 // --- Zugangsdaten der eigenen Zoom-App ----------------------------------
 // Eine "General App" bei Zoom hat genau EINE Client ID und EIN Client
 // Secret - dieselben Werte gelten fuer das Meeting SDK und fuer OAuth.
-// Deshalb gibt es hier auch nur zwei Felder. Die alten, vierfachen
-// Variablennamen funktionieren weiterhin, damit bestehende Installationen
-// nach einem Update nicht stehenbleiben.
-const CLIENT_ID = process.env.ZOOM_CLIENT_ID || process.env.ZOOM_MEETING_SDK_KEY || process.env.ZOOM_OAUTH_CLIENT_ID || '';
-const CLIENT_SECRET = process.env.ZOOM_CLIENT_SECRET || process.env.ZOOM_MEETING_SDK_SECRET || process.env.ZOOM_OAUTH_CLIENT_SECRET || '';
-
-const SDK_KEY = process.env.ZOOM_MEETING_SDK_KEY || CLIENT_ID;
-const SDK_SECRET = process.env.ZOOM_MEETING_SDK_SECRET || CLIENT_SECRET;
-const OAUTH_CLIENT_ID = process.env.ZOOM_OAUTH_CLIENT_ID || CLIENT_ID;
-const OAUTH_CLIENT_SECRET = process.env.ZOOM_OAUTH_CLIENT_SECRET || CLIENT_SECRET;
+// Deshalb gibt es hier auch nur zwei Felder.
+const CLIENT_ID = process.env.ZOOM_CLIENT_ID || '';
+const CLIENT_SECRET = process.env.ZOOM_CLIENT_SECRET || '';
 
 // Unter welcher Adresse ist CueLight erreichbar? Wird normalerweise aus
 // der Anfrage selbst abgeleitet (der Reverse-Proxy schickt Protokoll und
@@ -61,7 +54,7 @@ function isSecure(req) {
 // beim ersten Aufruf einmal danach und merkt es sich danach im Browser.
 // Leer lassen, wenn CueLight nicht oeffentlich erreichbar ist oder schon
 // eine eigene Zugriffskontrolle davor haengt (z. B. Cloudflare Access).
-const ACCESS_TOKEN = process.env.CUELIGHT_PASSWORD || process.env.CUELIGHT_ACCESS_TOKEN || '';
+const ACCESS_TOKEN = process.env.CUELIGHT_PASSWORD || '';
 
 // Im Cookie steht nicht das Passwort selbst, sondern ein daraus
 // abgeleiteter Wert. HttpOnly schuetzt vor Zugriff aus JavaScript, aber ein
@@ -345,7 +338,7 @@ function clearTokens() {
 }
 
 function basicAuthHeader() {
-  return 'Basic ' + Buffer.from(`${OAUTH_CLIENT_ID}:${OAUTH_CLIENT_SECRET}`).toString('base64');
+  return 'Basic ' + Buffer.from(`${CLIENT_ID}:${CLIENT_SECRET}`).toString('base64');
 }
 
 // Liefert ein gueltiges Access-Token des Hosts, erneuert es bei Bedarf.
@@ -405,7 +398,7 @@ async function refreshAccessToken(tokens) {
 
 // --- 1) Meeting-Host startet hier die einmalige Freigabe -----------------
 app.get('/oauth/authorize', (req, res) => {
-  if (!OAUTH_CLIENT_ID) {
+  if (!CLIENT_ID) {
     return res.status(500).send('Server nicht konfiguriert: ZOOM_CLIENT_ID fehlt.');
   }
   // state gegen CSRF: ohne diesen Wert koennte jemand den Betreiber auf
@@ -420,7 +413,7 @@ app.get('/oauth/authorize', (req, res) => {
 
   const url = new URL('https://zoom.us/oauth/authorize');
   url.searchParams.set('response_type', 'code');
-  url.searchParams.set('client_id', OAUTH_CLIENT_ID);
+  url.searchParams.set('client_id', CLIENT_ID);
   url.searchParams.set('redirect_uri', `${baseUrl(req)}/oauth/callback`);
   url.searchParams.set('state', state);
   res.redirect(url.toString());
@@ -606,7 +599,7 @@ app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_
   if (!/^\d{9,12}$/.test(String(meetingNumber || ''))) {
     return res.status(400).json({ error: 'meetingNumber ungueltig (9-12 Ziffern erwartet)' });
   }
-  if (!SDK_KEY || !SDK_SECRET) {
+  if (!CLIENT_ID || !CLIENT_SECRET) {
     return res.status(500).json({
       error: 'Server nicht konfiguriert: ZOOM_CLIENT_ID / ZOOM_CLIENT_SECRET fehlen',
     });
@@ -620,8 +613,8 @@ app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_
   const exp = iat + 60 * 60 * 12;
 
   const payload = {
-    appKey: SDK_KEY,
-    sdkKey: SDK_KEY,
+    appKey: CLIENT_ID,
+    sdkKey: CLIENT_ID,
     mn: String(meetingNumber),
     role: 0,
     iat,
@@ -629,7 +622,7 @@ app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_
     tokenExp: exp,
   };
 
-  const signature = jwt.sign(payload, SDK_SECRET, { algorithm: 'HS256' });
+  const signature = jwt.sign(payload, CLIENT_SECRET, { algorithm: 'HS256' });
   res.json({ signature });
 });
 

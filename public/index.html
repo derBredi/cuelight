@@ -6,10 +6,14 @@
 <title>CueLight</title>
 
 <!-- PWA: Homescreen-Icon, Vollbild-Modus ohne Safari-Leiste -->
-<link rel="manifest" href="/manifest.json" />
+<!-- use-credentials: Ohne das laedt der Browser die Manifest-Datei ohne
+     Cookie, und bei gesetztem Passwort antwortet der Server mit 401 - die
+     Web-App bekaeme dann weder Namen noch Symbol. -->
+<link rel="manifest" href="/manifest.json" crossorigin="use-credentials" />
 <link rel="icon" href="/icons/icon-192.png" />
 <link rel="apple-touch-icon" href="/icons/icon-180.png" />
 <meta name="theme-color" content="#1c1c2e" />
+<meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="CueLight" />
@@ -170,17 +174,6 @@
   .zm-modal,
   .zmwebsdk-makeStyles-root-1 {
     display: none !important;
-  }
-
-  /* Ungenutzt bei der Client-View-API, bleibt zur Sicherheit trotzdem
-     unsichtbar falls das SDK doch mal reinrendert. */
-  #meetingSDKElement {
-    position: fixed;
-    width: 1px;
-    height: 1px;
-    opacity: 0;
-    pointer-events: none;
-    overflow: hidden;
   }
 
   /* Eigener Scrollbereich: html/body sind auf overflow:hidden gesetzt
@@ -1052,7 +1045,6 @@
   <script src="https://source.zoom.us/6.2.0/lib/vendor/redux-thunk.min.js"></script>
   <script src="https://source.zoom.us/6.2.0/lib/vendor/lodash.min.js"></script>
   <script src="https://source.zoom.us/6.2.0/zoom-meeting-6.2.0.min.js"></script>
-  <div id="meetingSDKElement"></div>
 
   <script>
     // ---------------------------------------------------------------
@@ -1113,8 +1105,7 @@
     // stammt. Ein MutationObserver faengt auch das ab, was das SDK erst
     // spaeter nachlegt.
     const CUELIGHT_ELEMENTS = new Set([
-      'setup', 'board', 'toasts', 'debug', 'meetingSDKElement',
-      'cl-debug-errors',
+      'setup', 'board', 'toasts', 'debug', 'cl-debug-errors',
     ]);
 
     function hideZoomChrome() {
@@ -1653,7 +1644,12 @@
             coHost: Boolean(a.isCoHost),
           }));
           lastSuccessfulPollAt = Date.now();
-          hasEverConnected = true; // Sicherheitsnetz, falls onMeetingStatus mal ausbleibt
+          // Sicherheitsnetz, falls der Statusevent ausbleibt - aber nur bei
+          // einer Liste mit Inhalt. Im Warteraum antwortet Zoom bereitwillig
+          // mit einer LEEREN Liste, und die galt frueher als Beweis, dass man
+          // drin ist: Dann erschien die Uhr mit "0 Teilnehmende", obwohl
+          // CueLight noch draussen wartete.
+          if (attendees.length > 0) hasEverConnected = true;
           hideConnectionWarning();
 
           const selfAttendee = attendees.find((a) => a.self);
@@ -1750,7 +1746,6 @@
     // tatsaechlich schon erfolgreich verbunden war.
     // ---------------------------------------------------------------
     let lastSuccessfulPollAt = Date.now();
-    let joinedAt = 0;
     let hasEverConnected = false;
     // Zeitpunkt des join()-Aufrufs - NICHT des erfolgreichen Beitritts.
     let beitrittVersuchtAb = 0;
@@ -1886,21 +1881,33 @@
     }
 
     function handleMeetingStatus(data) {
-      // status: 1=connecting, 2=connected, 3=disconnected, 4=reconnecting
+      // 1=verbindet, 2=verbunden, 3=getrennt, 4=verbindet neu
+      //
+      // Zoom liefert das Feld als "meetingStatus". Frueher stand hier
+      // data.status - das ist immer undefined, und damit war dieser ganze
+      // Behandler wirkungslos: "verbunden" wurde nie erkannt, "getrennt"
+      // nie gemeldet. Aufgefallen ist es erst, als im Warteraum die Uhr mit
+      // "0 Teilnehmende" erschien, obwohl gar keine Verbindung bestand.
+      // Der alte Name bleibt als Rueckfallebene stehen, falls eine kuenftige
+      // SDK-Version ihn wieder verwendet.
       log('Meeting-Status:', data);
+      const status = data && (data.meetingStatus ?? data.status);
+      // Das SDK schickt auf demselben Kanal auch Ereignisse ohne Status
+      // (etwa { detail: … }) - die gehen uns nichts an.
+      if (typeof status !== 'number') return;
 
-      if (data.status === 2) {
+      if (status === 2) {
         hasEverConnected = true;
         hideConnectionWarning();
         return;
       }
 
-      if (data.status === 1 || data.status === 3) {
+      if (status === 1 || status === 3) {
         if (!hasEverConnected) {
           // Noch nie verbunden gewesen: ganz normal, wenn das Meeting noch
           // nicht gestartet ist oder ein Warteraum aktiv ist - deshalb
           // erstmal neutral formulieren, nicht wie ein Fehler.
-          const secondsSinceJoin = (Date.now() - (beitrittVersuchtAb || joinedAt)) / 1000;
+          const secondsSinceJoin = (Date.now() - beitrittVersuchtAb) / 1000;
           if (secondsSinceJoin < 45) {
             showConnectionWarning(
               'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
@@ -1922,7 +1929,7 @@
         return;
       }
 
-      if (data.status === 4) showConnectionWarning('Verbindung wird wiederhergestellt …');
+      if (status === 4) showConnectionWarning('Verbindung wird wiederhergestellt …');
     }
 
     setInterval(() => {
@@ -2130,7 +2137,6 @@
               // eine der folgenden Funktionen (z. B. weil eine kuenftige
               // SDK-Version etwas umbenennt), bliebe die Anzeige sonst auf
               // "Verbinde …" stehen, obwohl die Verbindung laengst steht.
-              joinedAt = Date.now();
               lastSuccessfulPollAt = Date.now();
               hasEverConnected = true;
               stoppeBeitrittsWaechter();
