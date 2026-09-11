@@ -1017,7 +1017,7 @@
            Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmende" saehe
            aus, als liefe alles normal. -->
       <div id="connecting" style="display:none;">
-        <div class="cl-connecting-text">Verbinde mit dem Meeting …</div>
+        <div class="cl-connecting-text" id="connectingText">Verbinde mit dem Meeting …</div>
         <div class="cl-sub" id="connectingSub"></div>
       </div>
       <div id="attendees" style="display:none;">
@@ -1072,6 +1072,7 @@
     const idleMainEl = document.getElementById('idleMain');
     const connectingEl = document.getElementById('connecting');
     const connectingSubEl = document.getElementById('connectingSub');
+    const connectingTextEl = document.getElementById('connectingText');
     const attendeesEl = document.getElementById('attendees');
     const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
@@ -1205,11 +1206,13 @@
       if (raisedHands.size === 0) {
         renderIdle();
         emptyEl.style.display = '';
-        // Uhr und Teilnehmerliste erst, wenn wirklich eine Verbindung steht.
-        idleMainEl.style.display = hasEverConnected ? '' : 'none';
+        // Uhr und Teilnehmerliste erst, wenn CueLight wirklich IM Meeting
+        // ist - im Warteraum saehe eine laufende Uhr mit "0 Teilnehmende"
+        // aus, als liefe alles normal.
+        idleMainEl.style.display = imMeeting ? '' : 'none';
         attendeesEl.style.display =
-          hasEverConnected && NAMEN_ZEIGEN && teilnehmer.length > 0 ? '' : 'none';
-        connectingEl.style.display = hasEverConnected ? 'none' : '';
+          imMeeting && NAMEN_ZEIGEN && teilnehmer.length > 0 ? '' : 'none';
+        connectingEl.style.display = imMeeting ? 'none' : '';
         connectingSubEl.textContent = currentMeetingNumber
           ? `Meeting ${currentMeetingNumber}`
           : '';
@@ -1649,7 +1652,13 @@
           // mit einer LEEREN Liste, und die galt frueher als Beweis, dass man
           // drin ist: Dann erschien die Uhr mit "0 Teilnehmende", obwohl
           // CueLight noch draussen wartete.
-          if (attendees.length > 0) hasEverConnected = true;
+          if (attendees.length > 0) {
+            hasEverConnected = true;
+            if (!imMeeting) {
+              imMeeting = true;
+              connectingTextEl.textContent = 'Verbinde mit dem Meeting …';
+            }
+          }
           hideConnectionWarning();
 
           const selfAttendee = attendees.find((a) => a.self);
@@ -1747,8 +1756,18 @@
     // ---------------------------------------------------------------
     let lastSuccessfulPollAt = Date.now();
     let hasEverConnected = false;
+    // Zoom meldet "verbunden" (Status 2) und ruft auch den Erfolgs-Rueckruf
+    // von join() auf, waehrend CueLight noch im WARTERAUM steht. Verbunden
+    // heisst dort also nicht "im Meeting". Das einzige verlaessliche
+    // Merkmal: Im Warteraum ist die Teilnehmerliste komplett leer - nicht
+    // einmal CueLight selbst steht darin. Sobald jemand einlaesst, ist sie
+    // gefuellt.
+    let imMeeting = false;
     // Zeitpunkt des join()-Aufrufs - NICHT des erfolgreichen Beitritts.
     let beitrittVersuchtAb = 0;
+    // Wann Zoom "verbunden" gemeldet hat - Bezugspunkt fuer die
+    // Warteraum-Erkennung.
+    let verbundenSeit = 0;
     let beitrittsWaechter = null;
 
     // Der Erfolgs-Rueckruf von join() kommt in zwei Faellen nie: wenn der
@@ -1760,10 +1779,24 @@
       beitrittVersuchtAb = Date.now();
       stoppeBeitrittsWaechter();
       beitrittsWaechter = setInterval(() => {
-        if (hasEverConnected) {
+        if (imMeeting) {
           stoppeBeitrittsWaechter();
           return;
         }
+
+        // Zoom sagt "verbunden", die Teilnehmerliste bleibt aber leer: Das
+        // ist der Warteraum. Den koennen wir beim Namen nennen, statt
+        // weiter allgemein ueber moegliche Ursachen zu spekulieren.
+        if (hasEverConnected && (Date.now() - verbundenSeit) / 1000 > 5) {
+          connectingTextEl.textContent = 'Im Warteraum';
+          showConnectionWarning(
+            'CueLight wartet im Warteraum des Meetings und muss vom Host ' +
+            'eingelassen werden.',
+            { waiting: true }
+          );
+          return;
+        }
+
         const sekunden = (Date.now() - beitrittVersuchtAb) / 1000;
         if (sekunden < 10) return;
         if (sekunden < 45) {
@@ -1897,6 +1930,7 @@
       if (typeof status !== 'number') return;
 
       if (status === 2) {
+        if (!hasEverConnected) verbundenSeit = Date.now();
         hasEverConnected = true;
         hideConnectionWarning();
         return;
@@ -2138,8 +2172,12 @@
               // SDK-Version etwas umbenennt), bliebe die Anzeige sonst auf
               // "Verbinde …" stehen, obwohl die Verbindung laengst steht.
               lastSuccessfulPollAt = Date.now();
+              if (!hasEverConnected) verbundenSeit = Date.now();
               hasEverConnected = true;
-              stoppeBeitrittsWaechter();
+              // Bewusst NICHT stoppeBeitrittsWaechter(): Der Erfolgs-Rueckruf
+              // kommt auch im Warteraum, das Warten ist damit noch nicht
+              // vorbei. Der Waechter beendet sich selbst, sobald eine
+              // gefuellte Teilnehmerliste beweist, dass CueLight drin ist.
               hideConnectionWarning();
               try {
                 hideZoomChrome();
