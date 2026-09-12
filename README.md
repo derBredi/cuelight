@@ -133,6 +133,21 @@ alphabetisch. Ein grüner Punkt markiert ein offenes Mikrofon, so siehst du
 auch jemanden, der spricht, ohne die Hand gehoben zu haben. Sobald sich
 jemand meldet, verschwindet die Ansicht.
 
+### Redezeit
+
+Unter der Uhrzeit steht eine Reihe Knöpfe: **Start** zählt einfach hoch,
+eine **Zahl** startet mit dieser Länge in Minuten. Ein Tipp genügt, und er
+startet immer von null — auch wenn schon etwas läuft. Läuft die Zeit, wird
+aus Start ein **Stopp**, und die Redezeit tritt an die Stelle der Uhrzeit.
+
+Ist die gewählte Länge erreicht, wird die Anzeige orange. Kurz danach
+verschwindet sie von selbst, damit der nächste Redner nicht die Zeit des
+vorherigen vorfindet. Mit **Start** ohne Länge läuft sie, bis jemand
+stoppt, und wird nie orange.
+
+Stehen Wortmeldungen an, erscheint die Zeit klein oben links — dort nur
+als Anzeige, bedient wird sie im Ruhezustand.
+
 Wenn auch Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am
 Ende der Adresse die Namen aus. CueLight merkt sich das; `?namen=1`
 schaltet sie wieder ein. Die Teilnehmerzahl bleibt in beiden Fällen

@@ -33,6 +33,9 @@ async function boardVorbereiten(page, meldungen) {
     boardEl.classList.add('cl-active');
     isHostOrCoHost = true;
     hasEverConnected = true;
+    // Seit der Warteraum-Erkennung gilt "im Meeting" erst bei gefuellter
+    // Teilnehmerliste - hier setzen wir den Zustand direkt.
+    imMeeting = true;
     totalAttendees = 14;
     // Bewusst erfunden: Das Bild landet oeffentlich im Repo, echte
     // Meeting-Nummern haben darin nichts verloren.

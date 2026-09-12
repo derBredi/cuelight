@@ -574,7 +574,16 @@
   /* Bewusst OHNE Sekunden: Auf dieser Anzeige bedeutet Bewegung "jemand
      meldet sich". Eine im Sekundentakt springende Ziffer wuerde das
      Auge daran gewoehnen, Bewegung hier zu ignorieren. */
+  /* Laeuft die Redezeit, schrumpft die Uhrzeit und bleibt oben stehen -
+     die Stoppuhr schiebt sich darunter. Die Uhrzeit verschwindet nicht:
+     Die Frage "wie spaet ist es" wird ja nicht dadurch hinfaellig, dass
+     jemand redet. */
+  #idleMain.cl-running #clock {
+    font-size: clamp(20px, min(5.5vw, 7vh), 46px);
+  }
+
   #clock {
+    transition: font-size 0.25s ease;
     font-size: clamp(48px, min(16vw, 22vh), 150px);
     font-weight: 300;
     line-height: 1;
@@ -587,6 +596,134 @@
      allein MAX_NAMEN im Skript. Eine zusaetzliche max-height haette den
      Block stumm abgeschnitten - samt der Zeile "+ N weitere", die ja
      gerade sagen soll, dass etwas fehlt. */
+  /* Minuten gross, Sekunden klein und dunkel. Die Anzeige darf wachsen -
+     der Teil, der sich sekuendlich aendert, aber nicht: Auf diesem
+     Bildschirm bedeutet Bewegung "jemand meldet sich". */
+  /* Schiebt sich zwischen Uhrzeit und Knopfreihe ein, statt aus dem
+     Nichts aufzutauchen - das zeigt, dass sie zum Block darueber gehoert.
+     Ueber Hoehe und Deckkraft, bewusst ohne Transformation: Die hatte auf
+     iOS schon einmal den Rechteck-Kasten um die Kacheln verursacht. */
+  #stopwatch {
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    color: var(--clock);
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
+  }
+
+  #idleMain.cl-running #stopwatch {
+    max-height: 32vh;
+    opacity: 1;
+    margin: 0.8vh 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #clock,
+    #stopwatch {
+      transition: none;
+    }
+  }
+
+  #swMin {
+    font-size: clamp(56px, min(18vw, 24vh), 170px);
+    font-weight: 300;
+    color: #b4b4cc;
+  }
+
+  #swSec {
+    font-size: clamp(24px, min(7vw, 9vh), 66px);
+    color: var(--clock);
+  }
+
+  /* Ueberzogen: dieselbe Signalfarbe wie die Kacheln, aber ohne Blinken -
+     gemeint ist der Redner, nicht der Raum. */
+  #stopwatch.cl-over #swMin { color: var(--flag); }
+  #stopwatch.cl-over #swSec { color: #b4551f; }
+
+  #timerBar {
+    margin-top: 2.4vh;
+    text-align: center;
+  }
+
+  #timerLabel {
+    font-size: clamp(9px, 1vw, 12px);
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    margin-bottom: 1vh;
+  }
+
+  #timerButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+  }
+
+  /* Die einzige gefuellte Flaeche der ganzen Anzeige - und damit die
+     Stelle, auf die jemand ohne Vorwissen zuerst tippt. */
+  #timerMainBtn {
+    min-height: 44px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 999px;
+    background: var(--notice-bg);
+    color: var(--bg);
+    font-family: var(--font);
+    font-size: clamp(14px, 1.6vw, 17px);
+    font-weight: 600;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Varianten derselben Aktion: umrandet statt gefuellt. */
+  .cl-min {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 1px solid var(--line);
+    border-radius: 50%;
+    background: none;
+    color: var(--muted);
+    font-family: var(--font);
+    font-size: clamp(13px, 1.5vw, 16px);
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Gewaehlte Laenge: Zustandsanzeige, kein Angebot - deshalb nur heller,
+     nicht gefuellt. */
+  .cl-min.cl-chosen {
+    border-color: #9a9ab5;
+    color: #e4e4f0;
+  }
+
+  /* Auf dem Board oben links, gegenueber dem Verlassen-Knopf. */
+  #boardTimer {
+    position: fixed;
+    top: calc(1.5vh + env(safe-area-inset-top));
+    left: calc(5vw + env(safe-area-inset-left));
+    z-index: 30;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+  }
+
+  #btMin {
+    font-size: clamp(20px, 2.4vw, 32px);
+    color: #9a9ab5;
+  }
+
+  #btSec {
+    font-size: clamp(13px, 1.5vw, 20px);
+    color: var(--clock);
+  }
+
+  #boardTimer.cl-over #btMin { color: var(--flag); }
+  #boardTimer.cl-over #btSec { color: #b4551f; }
+
   #attendees {
     flex: none;
     border-top: 1px solid var(--line);
@@ -627,10 +764,12 @@
   }
 
   #empty-state .cl-sub {
-    white-space: pre-line;
+    flex: none;
+    text-align: center;
     color: var(--line);
-    font-size: clamp(12px, 1.2vw, 15px);
+    font-size: clamp(11px, 1.1vw, 14px);
     font-variant-numeric: tabular-nums;
+    padding-bottom: 1vh;
   }
 
   /* Top-ausgerichtet statt zentriert: bei vielen Meldungen scrollt man von
@@ -735,8 +874,13 @@
   }
 
   #lowerAllBtn.cl-pressed,
-  #leaveBtn.cl-pressed {
+  #leaveBtn.cl-pressed,
+  .cl-min.cl-pressed {
     filter: brightness(1.35);
+  }
+
+  #timerMainBtn.cl-pressed {
+    filter: brightness(0.88);
   }
 
   /* Mikro ist offen -> gleich wird gesprochen. Biegt die im Rest der
@@ -1002,6 +1146,12 @@
         <line x1="21" y1="12" x2="9" y2="12"/>
       </svg>
     </button>
+    <!-- Nur Anzeige, keine Bedienung: Meldungen kommen mitten im
+         Programmpunkt, da ist die Zeit laengst gestartet. -->
+    <div id="boardTimer" style="display:none;">
+      <span id="btMin">0</span><span id="btSec">:00</span>
+    </div>
+
     <!-- Alles Bewegliche in einer Spalte: oben Meldungen, dann die
          Kacheln, unten der Knopf. -->
     <div id="notices" aria-live="polite">
@@ -1010,8 +1160,28 @@
 
     <div id="empty-state">
       <div id="idleMain">
+        <!-- Grosse Anzeige: die Uhrzeit, solange nichts laeuft - die
+             Stoppuhr, sobald jemand auf der Buehne steht. Was gerade
+             wichtiger ist, ist auch groesser. -->
         <div id="clock">--:--</div>
-        <div class="cl-sub" id="emptySub"></div>
+        <div id="stopwatch">
+          <span id="swMin">0</span><span id="swSec">:00</span>
+        </div>
+
+        <!-- Redezeit. Eine gefuellte Flaeche (Start bzw. Stopp) plus
+             Laengen als Varianten - mehr gibt es nicht zu bedienen. -->
+        <div id="timerBar">
+          <div id="timerLabel">REDEZEIT IN MINUTEN</div>
+          <div id="timerButtons">
+            <button id="timerMainBtn" type="button">Start</button>
+            <button class="cl-min" type="button" data-min="3">3</button>
+            <button class="cl-min" type="button" data-min="4">4</button>
+            <button class="cl-min" type="button" data-min="5">5</button>
+            <button class="cl-min" type="button" data-min="10">10</button>
+            <button class="cl-min" type="button" data-min="15">15</button>
+            <button class="cl-min" type="button" data-min="30">30</button>
+          </div>
+        </div>
       </div>
       <!-- Steht anstelle von Uhr und Teilnehmerzahl, solange keine
            Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmende" saehe
@@ -1020,6 +1190,10 @@
         <div class="cl-connecting-text" id="connectingText">Verbinde mit dem Meeting …</div>
         <div class="cl-sub" id="connectingSub"></div>
       </div>
+      <!-- Oben alles zur Zeit, hier unten alles zum Meeting - direkt ueber
+           dem Trennstrich, unter dem die Namen stehen. -->
+      <div class="cl-sub" id="emptySub"></div>
+
       <div id="attendees" style="display:none;">
         <div id="attendeeNames"></div>
       </div>
@@ -1069,6 +1243,15 @@
     const toastsEl = document.getElementById('toasts');
     const emptySubEl = document.getElementById('emptySub');
     const clockEl = document.getElementById('clock');
+    const stopwatchEl = document.getElementById('stopwatch');
+    const swMinEl = document.getElementById('swMin');
+    const swSecEl = document.getElementById('swSec');
+    const timerMainBtn = document.getElementById('timerMainBtn');
+    const timerLabelEl = document.getElementById('timerLabel');
+    const timerButtonsEl = document.getElementById('timerButtons');
+    const boardTimerEl = document.getElementById('boardTimer');
+    const btMinEl = document.getElementById('btMin');
+    const btSecEl = document.getElementById('btSec');
     const idleMainEl = document.getElementById('idleMain');
     const connectingEl = document.getElementById('connecting');
     const connectingSubEl = document.getElementById('connectingSub');
@@ -1203,6 +1386,10 @@
       // kann - sonst laeuft jede Beruehrung in eine Fehlermeldung.
       boardEl.classList.toggle('cl-can-unmute', isHostOrCoHost);
 
+      // Die Redezeit laeuft unabhaengig davon weiter, ob Meldungen
+      // anstehen - renderIdle() kommt in diesem Fall nicht dran.
+      if (raisedHands.size > 0) renderZeit();
+
       if (raisedHands.size === 0) {
         renderIdle();
         emptyEl.style.display = '';
@@ -1291,6 +1478,136 @@
 
     let teilnehmer = [];
 
+    // ------------------------------------------------------------------
+    // Redezeit
+    // ------------------------------------------------------------------
+    // Eine Hauptflaeche und Varianten davon: "Start" startet ohne Grenze,
+    // eine Zahl startet mit dieser Grenze - immer von null, egal ob schon
+    // etwas lief. Laeuft etwas, heisst die Hauptflaeche "Stopp" und setzt
+    // zurueck. Mehr Regeln gibt es nicht.
+    const ZEIT_KEY = 'cuelight:redezeit';
+
+    let zeitStart = 0;   // Zeitstempel des Starts, 0 = laeuft nicht
+    let zeitLimit = 0;   // gewaehlte Laenge in Minuten, 0 = ohne Grenze
+
+    // Nach dem Erreichen der Grenze laeuft die Anzeige noch ein Viertel der
+    // Laenge weiter und verschwindet dann von selbst. Hintergrund: Niemand
+    // denkt nach seinem Vortrag daran, eine Uhr zu stoppen, an der er
+    // vorbeigeht - der Naechste fand sonst eine fremde Zeit vor. Ein
+    // Viertel, aber mindestens eine und hoechstens drei Minuten: Bei einem
+    // Dreiminueter waeren zwei Minuten Nachlauf laenger als der Wechsel
+    // selbst, bei einer halben Stunde waere ein Viertel absurd lang.
+    function nachlaufSekunden(limitMin) {
+      return Math.min(180, Math.max(60, (limitMin * 60) / 4));
+    }
+
+    function ladeZeit() {
+      try {
+        const d = JSON.parse(localStorage.getItem(ZEIT_KEY) || 'null');
+        if (d && d.start) {
+          zeitStart = d.start;
+          zeitLimit = d.limit || 0;
+        }
+      } catch {
+        /* dann eben nicht */
+      }
+    }
+
+    function speichereZeit() {
+      // Damit ein versehentliches Neuladen die laufende Zeit nicht verliert.
+      try {
+        if (zeitStart) {
+          localStorage.setItem(ZEIT_KEY, JSON.stringify({ start: zeitStart, limit: zeitLimit }));
+        } else {
+          localStorage.removeItem(ZEIT_KEY);
+        }
+      } catch {
+        /* dann eben nicht */
+      }
+    }
+
+    function starteZeit(limitMin) {
+      zeitStart = Date.now();
+      zeitLimit = limitMin;
+      speichereZeit();
+      renderZeit();
+      // Sofort mitziehen, nicht erst beim naechsten Sekundentakt: Die
+      // Zeile unter der Anzeige wechselt zwischen Meeting-Nummer und
+      // Uhrzeit, und ein Nachzappeln waere sichtbar.
+      renderEmptySub();
+    }
+
+    function stoppeZeit() {
+      zeitStart = 0;
+      zeitLimit = 0;
+      speichereZeit();
+      // Markierung mitnehmen, sonst blitzt die naechste Zeit kurz in
+      // Orange auf, bevor sie neu berechnet wird.
+      stopwatchEl.classList.remove('cl-over');
+      boardTimerEl.classList.remove('cl-over');
+      renderZeit();
+      renderEmptySub();
+    }
+
+    function zeitText(sekunden) {
+      const min = Math.floor(sekunden / 60);
+      const sek = Math.floor(sekunden % 60);
+      return [String(min), ':' + String(sek).padStart(2, '0')];
+    }
+
+    // Zeichnet beide Anzeigen (Ruhezustand und Board) und die Knoepfe.
+    // Wird jede Sekunde aus render() aufgerufen.
+    function renderZeit() {
+      const laeuft = zeitStart > 0;
+
+      if (laeuft) {
+        const sekunden = (Date.now() - zeitStart) / 1000;
+
+        // Ohne Grenze laeuft sie, bis jemand stoppt - "frei" heisst frei.
+        if (zeitLimit > 0 && sekunden >= zeitLimit * 60 + nachlaufSekunden(zeitLimit)) {
+          stoppeZeit();
+          return;
+        }
+
+        const ueber = zeitLimit > 0 && sekunden >= zeitLimit * 60;
+        const [min, sek] = zeitText(sekunden);
+
+        swMinEl.textContent = min;
+        swSecEl.textContent = sek;
+        btMinEl.textContent = min;
+        btSecEl.textContent = sek;
+        stopwatchEl.classList.toggle('cl-over', ueber);
+        boardTimerEl.classList.toggle('cl-over', ueber);
+      }
+
+      // Eine Klasse steuert beides: Die Uhrzeit schrumpft, die Stoppuhr
+      // faehrt darunter aus (siehe CSS).
+      idleMainEl.classList.toggle('cl-running', laeuft);
+      timerMainBtn.textContent = laeuft ? 'Stopp' : 'Start';
+      timerLabelEl.style.visibility = laeuft ? 'hidden' : '';
+
+      for (const el of timerButtonsEl.querySelectorAll('.cl-min')) {
+        el.classList.toggle('cl-chosen', laeuft && Number(el.dataset.min) === zeitLimit);
+      }
+
+      // Auf dem Board nur, wenn dort auch Kacheln stehen - im Ruhezustand
+      // waere es dieselbe Zahl zweimal.
+      boardTimerEl.style.display = laeuft && raisedHands.size > 0 ? '' : 'none';
+    }
+
+    timerButtonsEl.addEventListener('click', (e) => {
+      const el = e.target.closest('#timerMainBtn, .cl-min');
+      if (!el) return;
+      if (el === timerMainBtn) {
+        if (zeitStart) stoppeZeit();
+        else starteZeit(0);
+        return;
+      }
+      starteZeit(Number(el.dataset.min));
+    });
+
+    ladeZeit();
+
     // Meeting-Angaben stehen in der Mitte, solange sich niemand meldet -
     // damit braucht es keinen eigenen Info-Knopf mehr, der dieselben Daten
     // noch einmal als Meldung eingeblendet haette.
@@ -1304,6 +1621,7 @@
 
     function renderIdle() {
       const jetzt = new Date();
+      renderZeit();
       clockEl.textContent =
         String(jetzt.getHours()).padStart(2, '0') + ':' +
         String(jetzt.getMinutes()).padStart(2, '0');
@@ -1362,7 +1680,9 @@
       // Die Anzahl steht hier und nicht ueber der Namensliste: Sonst waere
       // sie mit ?namen=0 gleich mit verschwunden, obwohl an ihr nichts
       // Heikles ist.
-      emptySubEl.textContent = `${kopf}\n${totalAttendees} Teilnehmende`;
+      // Eine Zeile, immer dieselbe: Sie gehoert zum Meeting-Block unten
+      // und hat mit der Redezeit nichts zu tun.
+      emptySubEl.textContent = `${kopf} · ${totalAttendees} Teilnehmende`;
     }
 
     function buildRowElement() {
@@ -1459,7 +1779,7 @@
     }
 
     document.addEventListener('pointerdown', (e) => {
-      const el = e.target.closest('.cl-row, #lowerAllBtn, #leaveBtn');
+      const el = e.target.closest('.cl-row, #lowerAllBtn, #leaveBtn, #timerMainBtn, .cl-min');
       if (!el) return;
       // Ohne Host-Rechte bewirkt ein Tipp auf eine Kachel nichts - dann soll
       // sie sich auch nicht gedrueckt anfuehlen.
