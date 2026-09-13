@@ -21,6 +21,12 @@ services:
       # erreichbar ist. Leer lassen, wenn schon eine eigene
       # Zugriffskontrolle davor hängt (z. B. Cloudflare Access).
       CUELIGHT_PASSWORD: ""
+
+      # Nur nötig, wenn CueLight ausnahmsweise OHNE Reverse-Proxy direkt
+      # erreichbar ist: dann auf "0" setzen. Sonst könnte jemand das
+      # Mengenlimit mit einem gefälschten X-Forwarded-For umgehen. Mit
+      # cloudflared oder nginx davor (Standardfall) bleibt der Wert leer.
+      # CUELIGHT_TRUST_PROXY: "0"
     volumes:
       # Hier merkt sich CueLight die einmalige Zoom-Freigabe.
       - ./data:/app/data

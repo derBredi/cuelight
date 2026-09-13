@@ -758,6 +758,10 @@
     vertical-align: 0.05em;
   }
 
+  .cl-selbstname {
+    color: var(--text);
+  }
+
   #attendeeNames .cl-more,
   #attendeeNames .cl-rolle {
     color: var(--line);
@@ -766,7 +770,10 @@
   #empty-state .cl-sub {
     flex: none;
     text-align: center;
-    color: var(--line);
+    /* Bewusst so hell wie die Namen darunter: Die Zeile muss im
+       Vorbeigehen lesbar sein, sonst beantwortet sie die Frage nicht, fuer
+       die es sie gibt. */
+    color: var(--muted);
     font-size: clamp(11px, 1.1vw, 14px);
     font-variant-numeric: tabular-nums;
     padding-bottom: 1vh;
@@ -1400,6 +1407,10 @@
         attendeesEl.style.display =
           imMeeting && NAMEN_ZEIGEN && teilnehmer.length > 0 ? '' : 'none';
         connectingEl.style.display = imMeeting ? 'none' : '';
+        // Auch diese Zeile erst, wenn CueLight wirklich drin ist: Im
+        // Warteraum stand dort sonst "Meeting … · 0 Teilnehmende", und
+        // gerade sie soll ja die Verbindung belegen.
+        emptySubEl.style.display = imMeeting ? '' : 'none';
         connectingSubEl.textContent = currentMeetingNumber
           ? `Meeting ${currentMeetingNumber}`
           : '';
@@ -1477,6 +1488,13 @@
     }
 
     let teilnehmer = [];
+    // Unter welchem Namen CueLight im Meeting steht - kommt aus der
+    // Teilnehmerliste und nicht aus dem Eingabefeld, damit die Anzeige den
+    // tatsaechlichen Zustand zeigt.
+    // Bewusst der Literalwert und nicht STANDARD_NAME: Die Konstante wird
+    // weiter unten definiert, und eine Vorbelegung damit wuerde beim Laden
+    // eine Ausnahme werfen.
+    let eigenerName = 'CueLight';
 
     // ------------------------------------------------------------------
     // Redezeit
@@ -1659,8 +1677,10 @@
 
     // Meeting-Angaben stehen in der Mitte, solange sich niemand meldet -
     // damit braucht es keinen eigenen Info-Knopf mehr, der dieselben Daten
-    // noch einmal als Meldung eingeblendet haette.
-    let meetingTopic = '';
+    // noch einmal als Meldung eingeblendet haette. Das Meeting-THEMA
+    // gehoert bewusst nicht dazu: die Zeile wuerde damit zu lang. Der
+    // zugehoerige Abruf (getCurrentMeetingInfo) ist deshalb entfernt - in
+    // der Git-Historie steht er, falls er doch einmal gebraucht wird.
 
     // Zeichnet Uhr und Teilnehmerliste. Die Namensliste wird nur neu
     // aufgebaut, wenn sie sich tatsaechlich geaendert hat - render() laeuft
@@ -1723,15 +1743,20 @@
         emptySubEl.textContent = '';
         return;
       }
-      const kopf = meetingTopic
-        ? `Meeting ${currentMeetingNumber} · ${meetingTopic}`
-        : `Meeting ${currentMeetingNumber}`;
       // Die Anzahl steht hier und nicht ueber der Namensliste: Sonst waere
       // sie mit ?namen=0 gleich mit verschwunden, obwohl an ihr nichts
       // Heikles ist.
-      // Eine Zeile, immer dieselbe: Sie gehoert zum Meeting-Block unten
-      // und hat mit der Redezeit nichts zu tun.
-      emptySubEl.textContent = `${kopf} · ${totalAttendees} Teilnehmende`;
+      // Beantwortet die Frage, die Erstbetrachter tatsaechlich stellen:
+      // "Ist das Tablet ueberhaupt in Zoom?" Der Anzeigename ist dabei der
+      // staerkste Beleg - wer sein eigenes Zoom offen hat, findet ihn dort
+      // in der Teilnehmerliste wieder.
+      emptySubEl.textContent = '';
+      emptySubEl.append('Mit Zoom verbunden als ');
+      const nameEl = document.createElement('span');
+      nameEl.className = 'cl-selbstname';
+      nameEl.textContent = eigenerName;
+      emptySubEl.append(nameEl);
+      emptySubEl.append(` · Meeting ${currentMeetingNumber} · ${totalAttendees} Teilnehmende`);
     }
 
     function buildRowElement() {
@@ -1947,24 +1972,6 @@
       });
     });
 
-    // Feldnamen sind laut Zoom-Forum nicht immer zuverlaessig befuellt -
-    // deshalb defensiv nur das anzeigen, was tatsaechlich da ist, und die
-    // Rohdaten immer zusaetzlich in die Konsole loggen.
-    // Einmal nach dem Beitritt holen und merken - angezeigt wird es im
-    // Leerzustand in der Mitte.
-    function fetchMeetingTopic() {
-      ZoomMtg.getCurrentMeetingInfo({
-        success: (res) => {
-          const info = (res && res.result) || res || {};
-          if (info.meetingTopic) {
-            meetingTopic = info.meetingTopic;
-            renderEmptySub();
-          }
-        },
-        error: (err) => log('getCurrentMeetingInfo fehlgeschlagen:', err),
-      });
-    }
-
     setInterval(render, 1000); // aktualisiert die "seit Xs"-Anzeige
 
     // ---------------------------------------------------------------
@@ -2006,6 +2013,9 @@
           }
 
           // CueLight selbst nicht mitzaehlen.
+          const selbst = attendees.find((a) => a.self);
+          if (selbst && selbst.userName) eigenerName = selbst.userName;
+
           const andere = attendees.filter((a) => !a.self);
           totalAttendees = andere.length;
           // Fuer den Ruhezustand merken - die Daten sind ohnehin da.
@@ -2550,7 +2560,6 @@
               hideConnectionWarning();
               try {
                 hideZoomChrome();
-                fetchMeetingTopic();
                 requestWakeLock();
               } catch (err) {
                 log('Nebensaechliches beim Beitritt fehlgeschlagen:', err);

@@ -127,7 +127,10 @@ wirklich zum Einsatz kommen, und nicht erst am Veranstaltungstag.
 
 ### Wenn sich niemand meldet
 
-Dann zeigt CueLight die Uhrzeit und wer im Meeting ist – in derselben
+Dann zeigt CueLight die Uhrzeit, darunter „Mit Zoom verbunden als …" mit
+dem eigenen Anzeigenamen und der Meeting-Nummer – das beantwortet die
+häufigste Frage von Erstbetrachtern, ob das Gerät überhaupt eingewählt
+ist. Außerdem, wer im Meeting ist – in derselben
 Reihenfolge wie Zoom selbst: Host, Co-Hosts, offene Mikrofone, danach
 alphabetisch. Ein grüner Punkt markiert ein offenes Mikrofon, so siehst du
 auch jemanden, der spricht, ohne die Hand gehoben zu haben. Sobald sich

@@ -22,7 +22,13 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', 1); // laeuft hinter cloudflared / nginx / Caddy
+// Laeuft normalerweise hinter cloudflared / nginx / Caddy, deshalb wird
+// dem X-Forwarded-For des ersten Proxys vertraut - sonst saehen alle
+// Anfragen wie dieselbe IP aus und das Mengenlimit unten waere wertlos.
+// Wer CueLight OHNE Proxy direkt erreichbar macht, setzt
+// CUELIGHT_TRUST_PROXY=0: dann zaehlt nur noch die echte Verbindungs-IP,
+// und niemand kann sich das Limit per gefaelschtem Header wegdrehen.
+app.set('trust proxy', process.env.CUELIGHT_TRUST_PROXY === '0' ? false : 1);
 
 // --- Zugangsdaten der eigenen Zoom-App ----------------------------------
 // Eine "General App" bei Zoom hat genau EINE Client ID und EIN Client
@@ -99,7 +105,20 @@ function parseCookies(req) {
   for (const part of header.split(';')) {
     const idx = part.indexOf('=');
     if (idx < 0) continue;
-    out[part.slice(0, idx).trim()] = decodeURIComponent(part.slice(idx + 1).trim());
+    const roh = part.slice(idx + 1).trim();
+    // decodeURIComponent wirft bei einem kaputten Cookie ("cl_access=%").
+    // Ungefangen passierte das mitten in der Zugriffspruefung - der
+    // betroffene Browser bekaeme dann auf JEDER Seite einen Serverfehler
+    // und kaeme ohne Loeschen der Cookies nicht mehr herein. Im Zweifel
+    // lieber den Rohwert nehmen: der passt dann eben nicht, und der Nutzer
+    // landet ganz normal auf der Anmeldeseite.
+    let wert;
+    try {
+      wert = decodeURIComponent(roh);
+    } catch {
+      wert = roh;
+    }
+    out[part.slice(0, idx).trim()] = wert;
   }
   return out;
 }
@@ -386,10 +405,14 @@ async function refreshAccessToken(tokens) {
   }
 
   const fresh = await res.json();
+  // Zoom rotiert das Refresh-Token normalerweise bei jedem Einloesen.
+  // Bleibt das Feld aber einmal leer, wuerde "undefined" gespeichert - und
+  // ab dann liesse sich die Freigabe nie wieder erneuern, obwohl das alte
+  // Token noch gueltig waere. Deshalb im Zweifel das bisherige behalten.
   const updated = {
     ...tokens,
     access_token: fresh.access_token,
-    refresh_token: fresh.refresh_token,
+    refresh_token: fresh.refresh_token || tokens.refresh_token,
     expires_at: Date.now() + fresh.expires_in * 1000,
   };
   saveTokens(updated);
@@ -518,7 +541,11 @@ app.get('/api/version', (req, res) => res.json({ version: VERSION }));
 // Zoom-Freigabe zuruecksetzen, damit ein anderes Konto autorisieren kann.
 // Vorher musste man dafuer data/zoom-oauth-tokens.json im Volume loeschen -
 // fuer jemanden, der nur Docker bedient, eine unnoetige Huerde.
-app.post('/oauth/reset', (req, res) => {
+// Mit Mengenlimit: der Endpunkt wirft die Freigabe des Hosts weg, und ohne
+// gesetztes CUELIGHT_PASSWORD liegt er voellig offen. Ein versehentlich
+// oder boeswillig wiederholter Aufruf soll nicht mitten in der
+// Veranstaltung die Autorisierung kosten.
+app.post('/oauth/reset', rateLimit({ name: 'reset', max: 5, windowMs: 60_000 }), (req, res) => {
   clearTokens();
   console.log('Zoom-Freigabe zurueckgesetzt.');
   res.json({ ok: true });
