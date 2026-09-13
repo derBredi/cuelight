@@ -1522,11 +1522,29 @@
       }
     }
 
+    // Die Anzeige wechselt an Sekundengrenzen, die vom START abhaengen -
+    // ein starrer Sekundentakt trifft sie mal knapp davor, mal knapp
+    // danach, und das sieht aus wie ein stolpernder Zeiger. Deshalb plant
+    // sich der Takt jeweils bis zur naechsten echten Grenze.
+    let zeitTakt = null;
+
+    function planeZeitTakt() {
+      clearTimeout(zeitTakt);
+      if (!zeitStart) return;
+      const seitStart = Date.now() - zeitStart;
+      const bisGrenze = 1000 - (seitStart % 1000);
+      zeitTakt = setTimeout(() => {
+        renderZeit();
+        planeZeitTakt();
+      }, bisGrenze + 20); // kleiner Puffer gegen Ungenauigkeiten des Browsers
+    }
+
     function starteZeit(limitMin) {
       zeitStart = Date.now();
       zeitLimit = limitMin;
       speichereZeit();
       renderZeit();
+      planeZeitTakt();
       // Sofort mitziehen, nicht erst beim naechsten Sekundentakt: Die
       // Zeile unter der Anzeige wechselt zwischen Meeting-Nummer und
       // Uhrzeit, und ein Nachzappeln waere sichtbar.
@@ -1536,6 +1554,8 @@
     function stoppeZeit() {
       zeitStart = 0;
       zeitLimit = 0;
+      clearTimeout(zeitTakt);
+      zeitTakt = null;
       speichereZeit();
       // Markierung mitnehmen, sonst blitzt die naechste Zeit kurz in
       // Orange auf, bevor sie neu berechnet wird.
@@ -1543,6 +1563,10 @@
       boardTimerEl.classList.remove('cl-over');
       renderZeit();
       renderEmptySub();
+    }
+
+    function setzeText(el, text) {
+      if (el.textContent !== text) el.textContent = text;
     }
 
     function zeitText(sekunden) {
@@ -1590,10 +1614,13 @@
 
         const [min, sek] = zeitText(anzeigeSekunden);
 
-        swMinEl.textContent = zeichen + min;
-        swSecEl.textContent = sek;
-        btMinEl.textContent = zeichen + min;
-        btSecEl.textContent = sek;
+        // Nur schreiben, wenn sich etwas geaendert hat: Sonst wird die
+        // Anzeige auch von Aufrufen neu gesetzt, die zwischen zwei
+        // Sekundengrenzen liegen.
+        setzeText(swMinEl, zeichen + min);
+        setzeText(swSecEl, sek);
+        setzeText(btMinEl, zeichen + min);
+        setzeText(btSecEl, sek);
         stopwatchEl.classList.toggle('cl-over', ueber);
         boardTimerEl.classList.toggle('cl-over', ueber);
       }
@@ -1628,6 +1655,7 @@
     });
 
     ladeZeit();
+    planeZeitTakt();
 
     // Meeting-Angaben stehen in der Mitte, solange sich niemand meldet -
     // damit braucht es keinen eigenen Info-Knopf mehr, der dieselben Daten
