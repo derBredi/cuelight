@@ -584,7 +584,12 @@
 
   #clock {
     transition: font-size 0.25s ease;
-    font-size: clamp(48px, min(16vw, 22vh), 150px);
+    /* Hoehenbewusst UND breitenbewusst: auf einem hochkant stehenden iPad
+       ist die Breite der knappe Wert - mit den frueheren 16vw blieb die Uhr
+       dort bei 123px stehen, obwohl vertikal die halbe Flaeche leer war.
+       26vw nutzen den Raum, 24vh verhindern, dass die Uhr im Querformat
+       oder auf einem breiten Monitor die Knopfreihe darunter herausdrueckt. */
+    font-size: clamp(48px, min(26vw, 24vh), 260px);
     font-weight: 300;
     line-height: 1;
     letter-spacing: 0.01em;
@@ -626,14 +631,18 @@
     }
   }
 
+  /* Gleiche Ueberlegung wie bei #clock: der Countdown ist im
+     Redezeit-Zustand das Hauptobjekt der Anzeige und darf den Platz auch
+     nehmen. Die Sekunden bleiben bei 39% der Minutenhoehe - dasselbe
+     Verhaeltnis wie vorher, nur eine Stufe groesser. */
   #swMin {
-    font-size: clamp(56px, min(18vw, 24vh), 170px);
+    font-size: clamp(56px, min(30vw, 26vh), 300px);
     font-weight: 300;
     color: #b4b4cc;
   }
 
   #swSec {
-    font-size: clamp(24px, min(7vw, 9vh), 66px);
+    font-size: clamp(24px, min(11.7vw, 10vh), 117px);
     color: var(--clock);
   }
 
@@ -700,24 +709,34 @@
     color: #e4e4f0;
   }
 
-  /* Auf dem Board oben links, gegenueber dem Verlassen-Knopf. */
+  /* Kopfband ueber den Kacheln, auf deren linker Kante.
+     Frueher klebte die Zeit per position:fixed in der Ecke - dort war sie
+     kein gestaltetes Element, sondern ein Rest: ohne Bezug zu irgendeiner
+     Kante, und mit clamp(20px, 2.4vw, 32px) als einzigem rein
+     breitenabhaengigen Wert der Anzeige fiel sie auf einem hochkanten iPad
+     auf ihre 20px-Untergrenze - halb so hoch wie die Namen direkt darunter,
+     also ausgerechnet dann unlesbar, wenn sie gebraucht wird.
+     Jetzt liegt sie als normales Element in der Spalte ueber #notices und
+     folgt exakt der Groessenformel von .cl-row .cl-name, damit das
+     Verhaeltnis zu den Namen auf jedem Geraet dasselbe bleibt.
+     var(--glow-room) gleicht die Einrueckung der Kachelliste aus, sonst
+     staende die Zeit ein paar Pixel links neben den Kacheln. */
   #boardTimer {
-    position: fixed;
-    top: calc(1.5vh + env(safe-area-inset-top));
-    left: calc(5vw + env(safe-area-inset-left));
-    z-index: 30;
+    flex: none;
+    padding: 0 var(--glow-room);
+    margin-bottom: 1.8vh;
     line-height: 1;
     font-variant-numeric: tabular-nums;
     pointer-events: none;
   }
 
   #btMin {
-    font-size: clamp(20px, 2.4vw, 32px);
+    font-size: clamp(24px, min(5.5vw, 7vh), 64px);
     color: #9a9ab5;
   }
 
   #btSec {
-    font-size: clamp(13px, 1.5vw, 20px);
+    font-size: clamp(10px, min(2.3vw, 2.9vh), 27px);
     color: var(--clock);
   }
 
@@ -760,6 +779,13 @@
 
   .cl-selbstname {
     color: var(--text);
+  }
+
+  /* Haelt eine Angabe samt ihrer Einheit zusammen. Ohne das trennte der
+     Umbruch auf schmalen Geraeten die Zahl von dem Wort, zu dem sie
+     gehoert ("2" in Zeile eins, "Teilnehmende" in Zeile zwei). */
+  .cl-teil {
+    white-space: nowrap;
   }
 
   #attendeeNames .cl-more,
@@ -1032,6 +1058,18 @@
     .cl-row .cl-mic {
       width: clamp(26px, min(2.6vw, 5vh), 44px);
       height: clamp(26px, min(2.6vw, 5vh), 44px);
+    }
+
+    /* Muss mit: die Redezeit oben soll auf jedem Geraet im selben
+       Verhaeltnis zu den Namen stehen. Ohne diese Zeilen waere sie im
+       Querformat ploetzlich fast doppelt so hoch wie die Namen, weil dort
+       nur die Kacheln auf die kleinere Formel umschalten. */
+    #btMin {
+      font-size: clamp(20px, min(3vw, 6vh), 46px);
+    }
+
+    #btSec {
+      font-size: clamp(8px, min(1.26vw, 2.5vh), 19px);
     }
   }
 
@@ -1750,13 +1788,32 @@
       // "Ist das Tablet ueberhaupt in Zoom?" Der Anzeigename ist dabei der
       // staerkste Beleg - wer sein eigenes Zoom offen hat, findet ihn dort
       // in der Teilnehmerliste wieder.
+      // In Abschnitte zerlegt statt als ein Textknoten: sonst darf der
+      // Browser an JEDEM Leerzeichen umbrechen, und auf dem iPhone landete
+      // die Zahl in der ersten und "Teilnehmende" in der zweiten Zeile.
+      // Jeder Abschnitt haelt intern zusammen (.cl-teil), die "·"-Trenner
+      // stehen ausserhalb - dort und nur dort wird umgebrochen.
+      // Der Namensabschnitt bewusst OHNE Zusammenhalt: ein langer
+      // Zoom-Anzeigename soll umbrechen duerfen statt seitlich ueberzulaufen.
       emptySubEl.textContent = '';
-      emptySubEl.append('Mit Zoom verbunden als ');
+
+      const nameTeil = document.createElement('span');
+      nameTeil.append('Mit Zoom verbunden als ');
       const nameEl = document.createElement('span');
       nameEl.className = 'cl-selbstname';
       nameEl.textContent = eigenerName;
-      emptySubEl.append(nameEl);
-      emptySubEl.append(` · Meeting ${currentMeetingNumber} · ${totalAttendees} Teilnehmende`);
+      nameTeil.append(nameEl);
+      emptySubEl.append(nameTeil);
+
+      const teil = (text) => {
+        emptySubEl.append(' · ');
+        const el = document.createElement('span');
+        el.className = 'cl-teil';
+        el.textContent = text;
+        emptySubEl.append(el);
+      };
+      teil(`Meeting ${currentMeetingNumber}`);
+      teil(`${totalAttendees} Teilnehmende`);
     }
 
     function buildRowElement() {
