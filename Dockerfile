@@ -1,5 +1,5 @@
 # Kleines, produktionsnahes Image
-FROM node:20-alpine
+FROM node:22-alpine
 
 # su-exec: winziges Tool, um beim Containerstart kontrolliert von root zu
 # einem unprivilegierten User zu wechseln (siehe entrypoint.sh).

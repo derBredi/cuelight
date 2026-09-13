@@ -2038,13 +2038,17 @@
     // uneinheitlich. Wir prüfen deshalb mehrere bekannte Varianten und
     // loggen jedes Attendee-Objekt roh in die Konsole, damit du beim
     // ersten Testlauf sofort siehst, welches Feld bei dir tatsächlich kommt.
+    // Bewusst ODER und NICHT ??: "??" nimmt das erste Feld, das nicht
+    // null/undefined ist - liefert Zoom also raiseHand:false UND daneben
+    // ein wahres Alternativfeld, waere die Antwort false, und die Hand
+    // bliebe unbemerkt. Genau das soll diese Kette ja verhindern.
     function isHandRaised(attendee) {
       return Boolean(
-        attendee.raiseHand ??
-        attendee.isRaisedHand ??
-        attendee.bHandRaised ??
-        attendee.raiseHandTime ??
-        attendee.bRaiseHand ??
+        attendee.raiseHand ||
+        attendee.isRaisedHand ||
+        attendee.bHandRaised ||
+        attendee.raiseHandTime ||
+        attendee.bRaiseHand ||
         (typeof attendee.status === 'string' && attendee.status.toLowerCase().includes('hand'))
       );
     }
@@ -2521,6 +2525,18 @@
       }
     }
 
+    // Zoom ERSETZT einen Listener nicht, sondern haengt jedes Mal einen
+    // weiteren an. Nach einem gescheiterten Beitritt kann ohne Neuladen
+    // erneut gestartet werden - der finally-Block unten gibt den Knopf ja
+    // wieder frei. Ohne diesen Merker liefe danach jeder Rueckruf doppelt,
+    // dreifach, und mit ihm die Teilnehmerabfrage.
+    const registrierteListener = new Set();
+    function listenerEinmal(name, fn) {
+      if (registrierteListener.has(name)) return;
+      registrierteListener.add(name);
+      ZoomMtg.inMeetingServiceListener(name, fn);
+    }
+
     async function joinMeeting({ meetingNumber, password, serverUrl, displayName }) {
       // Signatur vom eigenen kleinen Server holen (siehe server.js)
       const res = await fetch(`${serverUrl}/api/signature`, {
@@ -2539,24 +2555,44 @@
 
       // App-Account und Meeting-Host-Account sind unterschiedlich ->
       // zusätzlich ein OBF-Token holen, mit dem der Host die App autorisiert.
-      const obfRes = await fetch(
-        `${serverUrl}/api/obf-token?meetingNumber=${encodeURIComponent(meetingNumber)}`
-      );
-      if (!obfRes.ok) {
-        const body = await obfRes.json().catch(() => ({}));
-        console.error('OBF-Token-Fehler:', body);
-        if (body.error === 'not_authorized') {
-          // Kein window.open mehr: das blockieren Safari und iOS
-          // zuverlaessig, und dann steht nur noch eine URL zum Abtippen da.
-          // Stattdessen erscheint ein Knopf direkt im Formular.
-          showAuthNeeded(serverUrl);
-          throw new Error(
-            'Zoom-Freigabe fehlt. Der blaue Knopf dafuer steht jetzt unten im Formular.'
-          );
+      // Das OBF-Token wird gebraucht, wenn das Meeting in einem ANDEREN
+      // Zoom-Konto laeuft als dem, in dem die App angelegt wurde. Laeuft es
+      // im eigenen Konto, genuegt die Signatur allein.
+      // Ein Fehlschlag ist deshalb bewusst NICHT toedlich: frueher brach der
+      // Beitritt hier ab, und eine Instanz, die gar kein OBF gebraucht
+      // haette, kam ohne OAuth-Freigabe nie ins Meeting. Jetzt wird es
+      // versucht, und wenn es nicht klappt, geht es mit der Signatur allein
+      // weiter - scheitert der Beitritt dann wirklich an der Attribution,
+      // sagt Zooms eigene Fehlermeldung das deutlich.
+      let obfToken;
+      try {
+        const obfRes = await fetch(
+          `${serverUrl}/api/obf-token?meetingNumber=${encodeURIComponent(meetingNumber)}`
+        );
+        if (obfRes.ok) {
+          ({ obfToken } = await obfRes.json());
+        } else {
+          const body = await obfRes.json().catch(() => ({}));
+          console.error('OBF-Token-Fehler:', body);
+          if (body.error === 'not_authorized') {
+            // Kein window.open: das blockieren Safari und iOS zuverlaessig,
+            // und dann steht nur noch eine URL zum Abtippen da. Stattdessen
+            // erscheint ein Knopf direkt im Formular - als Angebot, nicht
+            // als Sperre.
+            showAuthNeeded(serverUrl);
+            toast(
+              'Ohne Zoom-Freigabe versuche ich es nur mit der Signatur. ' +
+              'Bei einem Meeting aus einem fremden Zoom-Konto reicht das ' +
+              'nicht - der Knopf zum Freigeben steht unten im Formular.',
+              { ms: 12000 }
+            );
+          }
         }
-        throw new Error('Der Server konnte kein Beitritts-Token von Zoom holen.');
+      } catch (err) {
+        // Netzwerkfehler auf dem Weg zum eigenen Server: auch das soll den
+        // Beitritt nicht aufhalten.
+        console.error('OBF-Token nicht erreichbar:', err);
       }
-      const { obfToken } = await obfRes.json();
 
       setupEl.style.display = 'none';
       boardEl.classList.add('cl-active');
@@ -2592,7 +2628,7 @@
           // Bewusst VOR dem Beitritt angemeldet: Frueher stand das im
           // Erfolgs-Rueckruf, und der kommt in genau den Faellen nie, in
           // denen man eine Statusmeldung am dringendsten braucht.
-          ZoomMtg.inMeetingServiceListener('onMeetingStatus', handleMeetingStatus);
+          listenerEinmal('onMeetingStatus', handleMeetingStatus);
           starteBeitrittsWaechter();
 
           ZoomMtg.join({
@@ -2632,9 +2668,9 @@
               // (reentrant dispatch). Der Timeout schiebt den Aufruf auf den
               // naechsten Tick, nachdem Zoom fertig ist.
               const deferredRefresh = () => setTimeout(refreshFromAttendeeList, 0);
-              ZoomMtg.inMeetingServiceListener('onUserUpdate', deferredRefresh);
-              ZoomMtg.inMeetingServiceListener('onUserJoin', deferredRefresh);
-              ZoomMtg.inMeetingServiceListener('onUserLeave', deferredRefresh);
+              listenerEinmal('onUserUpdate', deferredRefresh);
+              listenerEinmal('onUserJoin', deferredRefresh);
+              listenerEinmal('onUserLeave', deferredRefresh);
 
               // Zusätzliches Sicherheitsnetz: alle 3s neu abfragen,
               // falls ein Event mal nicht feuert (kommt in der Praxis vor).
@@ -2681,7 +2717,11 @@
       const url = new URL(window.location.href);
       url.search = '';
       if (meetingNumber) url.searchParams.set('meeting', meetingNumber);
-      if (password) url.searchParams.set('password', password);
+      // Das Meeting-Passwort kommt bewusst NICHT in den Link: eine URL
+      // landet im Browser-Verlauf, in Lesezeichen, auf Screenshots und in
+      // den Protokollen jedes Proxys auf dem Weg. Es bleibt im Speicher
+      // dieses Geraets - das Lesezeichen startet damit genauso durch wie
+      // vorher, nur muss es auf einem NEUEN Geraet einmal eingetippt werden.
       if (displayName) url.searchParams.set('name', displayName);
       if (!NAMEN_ZEIGEN) url.searchParams.set('namen', '0');
       document.getElementById('bookmarkLink').value = meetingNumber ? url.toString() : '';
@@ -2795,8 +2835,18 @@
 
     if (linkedMeeting) {
       document.getElementById('meetingNumber').value = linkedMeeting;
-      document.getElementById('password').value = params.get('password') || '';
-      document.getElementById('displayName').value = params.get('name') || '';
+      // Neue Lesezeichen enthalten kein Passwort mehr (siehe
+      // updateBookmarkLink). Aeltere schon - die werden weiter angenommen,
+      // damit niemandem sein bestehendes Lesezeichen kaputtgeht. Sonst
+      // kommt es aus dem Geraetespeicher, sofern es zu diesem Meeting passt.
+      const ausUrl = params.get('password');
+      const ausSpeicher =
+        remembered && remembered.meetingNumber === linkedMeeting
+          ? remembered.password || ''
+          : '';
+      document.getElementById('password').value = ausUrl || ausSpeicher;
+      document.getElementById('displayName').value =
+        params.get('name') || (remembered && remembered.displayName) || '';
       updateBookmarkLink();
       startBoard();
     } else if (remembered && remembered.meetingNumber) {

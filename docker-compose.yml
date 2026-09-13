@@ -7,6 +7,11 @@
 
 services:
   cuelight:
+    # Vor einer Veranstaltung besser auf eine getestete Fassung festnageln,
+    # damit ein "docker compose pull" am Vorabend nicht unbemerkt etwas
+    # anderes zieht - die Tags heissen wie die Git-Tags, z. B.
+    # ghcr.io/derbredi/cuelight:v1.3.5 (NICHT die Nummer aus package.json,
+    # die wird nicht gepflegt).
     image: ghcr.io/derbredi/cuelight:latest
     container_name: cuelight
     restart: unless-stopped
@@ -21,6 +26,13 @@ services:
       # erreichbar ist. Leer lassen, wenn schon eine eigene
       # Zugriffskontrolle davor hängt (z. B. Cloudflare Access).
       CUELIGHT_PASSWORD: ""
+
+      # Optionale zweite Stufe, nur für die Zoom-Freigabe
+      # (/oauth/authorize und /oauth/reset). Ohne sie darf jeder, der
+      # CueLight bedienen kann, auch bestimmen, in wessen Namen die Instanz
+      # Meetings beitritt. Sinnvoll, sobald das Bedienpasswort mehr als eine
+      # Person kennt. Leer lassen = Verhalten wie bisher.
+      CUELIGHT_ADMIN_PASSWORD: ""
 
       # Nur nötig, wenn CueLight ausnahmsweise OHNE Reverse-Proxy direkt
       # erreichbar ist: dann auf "0" setzen. Sonst könnte jemand das

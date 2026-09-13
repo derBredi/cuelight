@@ -72,6 +72,21 @@ const ACCESS_COOKIE = ACCESS_TOKEN
   ? crypto.createHmac('sha256', ACCESS_TOKEN).update('cl_access.v1').digest('base64url')
   : '';
 
+// --- Zweite Stufe fuer die Zoom-Freigabe --------------------------------
+// Optional und rein additiv: Ist CUELIGHT_ADMIN_PASSWORD leer, verhaelt sich
+// alles wie bisher.
+// Warum es das gibt: /oauth/authorize und /oauth/reset entscheiden, in
+// wessen Namen diese Instanz Meetings beitritt. Mit nur einem Passwort darf
+// jeder, der CueLight bedienen darf, die Freigabe auch wegwerfen oder durch
+// sein eigenes Konto ersetzen - das faellt auf, sobald mehrere Gruppen eine
+// gemeinsame Instanz nutzen oder sich ein Bedienpasswort herumspricht.
+// Die Anmeldung dafuer liegt HINTER dem normalen Zugriffsschutz: Admin
+// koennen nur Leute werden, die ohnehin schon hereindurften.
+const ADMIN_TOKEN = process.env.CUELIGHT_ADMIN_PASSWORD || '';
+const ADMIN_COOKIE = ADMIN_TOKEN
+  ? crypto.createHmac('sha256', ADMIN_TOKEN).update('cl_admin.v1').digest('base64url')
+  : '';
+
 // Content-Security-Policy: standardmaessig AUS. Sie kann das Zoom-SDK
 // blockieren (WebAssembly, Worker, Medien-Verbindungen zu wechselnden
 // Zoom-Hosts), und ein Schutzmechanismus, der die Anzeige mitten in einer
@@ -87,6 +102,11 @@ if (!CLIENT_ID || !CLIENT_SECRET) {
     'CueLight keinem Meeting beitreten.'
   );
 }
+console.log(
+  ADMIN_TOKEN
+    ? 'Admin-Passwort aktiv: die Zoom-Freigabe (/oauth/authorize, /oauth/reset) verlangt zusaetzlich CUELIGHT_ADMIN_PASSWORD.'
+    : 'Kein Admin-Passwort gesetzt - wer CueLight bedienen darf, darf auch die Zoom-Freigabe aendern. Fuer eine Instanz mit nur einem Bediener in Ordnung.'
+);
 console.log(
   ACCESS_TOKEN
     ? 'Passwortschutz aktiv: beim ersten Aufruf fragt CueLight einmal danach.'
@@ -136,6 +156,20 @@ function setCookie(res, name, value, { maxAge, path: cookiePath = '/', secure = 
   const list = existing ? [].concat(existing) : [];
   list.push(parts.join('; '));
   res.setHeader('Set-Cookie', list);
+}
+
+// Alles, was aus einer Anfrage oder von Zoom kommt und in einer HTML-Seite
+// landet, muss hier durch. Express schickt res.send(<string>) mit
+// Content-Type text/html - ein ungefilterter Wert waere damit ausfuehrbares
+// Markup auf genau der Origin, auf der auch der Geraetespeicher mit den
+// Meeting-Zugangsdaten liegt.
+function escapeHtml(wert) {
+  return String(wert)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // Vergleich in konstanter Zeit, damit ein Angreifer den Schluessel nicht
@@ -233,7 +267,14 @@ app.use(cors({ origin: false }));
 // haengen: der Browser bietet ihn danach als gespeichertes Passwort an,
 // er landet nicht im Verlauf, und Sonderzeichen koennen nichts kaputt
 // machen. Diese beiden Routen liegen bewusst VOR der Zugriffspruefung.
-function unlockPage({ wrong = false } = {}) {
+function unlockPage({ wrong = false, admin = false } = {}) {
+  const ziel = admin ? '/unlock-admin' : '/unlock';
+  const einleitung = admin
+    ? 'Die Zoom-Freigabe dieser Instanz aendern. Dafuer gilt das Admin-Passwort aus der docker-compose.yml, nicht das Passwort der Seite.'
+    : 'Einmal pro Gerät das Passwort eintragen. Danach merkt sich der Browser die Freigabe.';
+  const fehler = admin
+    ? 'Admin-Passwort stimmt nicht. Es ist der Wert, der in der docker-compose.yml bei CUELIGHT_ADMIN_PASSWORD steht.'
+    : 'Passwort stimmt nicht. Es ist der Wert, der in der docker-compose.yml bei CUELIGHT_PASSWORD steht.';
   return `<!DOCTYPE html><html lang="de"><head><meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>CueLight entsperren</title>
@@ -255,14 +296,13 @@ function unlockPage({ wrong = false } = {}) {
     background:rgba(220,38,38,0.15); border:1px solid #dc2626;
     border-radius:6px; }
 </style></head><body>
-<form method="POST" action="/unlock">
-  <h1>CueLight</h1>
-  <p>Einmal pro Gerät das Passwort eintragen. Danach merkt sich der
-     Browser die Freigabe.</p>
+<form method="POST" action="${ziel}">
+  <h1>CueLight${admin ? ' · Admin' : ''}</h1>
+  <p>${einleitung}</p>
   <input type="password" name="key" autocomplete="current-password"
          autofocus placeholder="Passwort" />
   <button type="submit">Anmelden</button>
-  ${wrong ? '<p class="err">Passwort stimmt nicht. Es ist der Wert, der in der docker-compose.yml bei CUELIGHT_PASSWORD steht.</p>' : ''}
+  ${wrong ? `<p class="err">${fehler}</p>` : ''}
 </form></body></html>`;
 }
 
@@ -306,6 +346,46 @@ app.use((req, res, next) => {
   if (wantsHtml) return res.redirect('/unlock');
   res.status(401).json({ error: 'locked', message: 'Passwort fehlt.' });
 });
+
+// --- Admin-Anmeldung (nur wenn CUELIGHT_ADMIN_PASSWORD gesetzt ist) -----
+// Steht bewusst NACH der Zugriffspruefung oben: wer das Bedienpasswort
+// nicht hat, bekommt dieses Formular gar nicht erst zu sehen und kann das
+// Admin-Passwort auch nicht durchprobieren.
+app.get('/unlock-admin', (req, res) => {
+  if (!ADMIN_TOKEN) return res.redirect('/');
+  res.type('html').send(unlockPage({ admin: true }));
+});
+
+app.post(
+  '/unlock-admin',
+  express.urlencoded({ extended: false, limit: '2kb' }),
+  rateLimit({ name: 'unlock-admin', max: 10, windowMs: 60_000 }),
+  (req, res) => {
+    if (!ADMIN_TOKEN) return res.redirect('/');
+    const key = String((req.body && req.body.key) || '').trim();
+    if (safeEqual(key, ADMIN_TOKEN)) {
+      // Kurzlebiger als die Bedienfreigabe: Admin ist man fuer die Dauer
+      // einer Einrichtung, nicht dauerhaft.
+      setCookie(res, 'cl_admin', ADMIN_COOKIE, {
+        maxAge: 60 * 60 * 2,
+        secure: isSecure(req),
+      });
+      return res.redirect('/oauth/authorize');
+    }
+    res.status(401).type('html').send(unlockPage({ wrong: true, admin: true }));
+  }
+);
+
+// Vor die beiden Endpunkte gehaengt, die entscheiden, in wessen Namen diese
+// Instanz Meetings beitritt. Ohne gesetztes Admin-Passwort faellt die
+// Pruefung weg - bestehende Installationen aendern ihr Verhalten also nicht.
+function requireAdmin(req, res, next) {
+  if (!ADMIN_TOKEN) return next();
+  if (safeEqual(parseCookies(req).cl_admin || '', ADMIN_COOKIE)) return next();
+  const wantsHtml = req.method === 'GET' && (req.headers.accept || '').includes('text/html');
+  if (wantsHtml) return res.redirect('/unlock-admin');
+  res.status(403).json({ error: 'admin_required', message: 'Admin-Passwort fehlt.' });
+}
 
 app.use(express.json({ limit: '4kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
@@ -420,7 +500,7 @@ async function refreshAccessToken(tokens) {
 }
 
 // --- 1) Meeting-Host startet hier die einmalige Freigabe -----------------
-app.get('/oauth/authorize', (req, res) => {
+app.get('/oauth/authorize', requireAdmin, (req, res) => {
   if (!CLIENT_ID) {
     return res.status(500).send('Server nicht konfiguriert: ZOOM_CLIENT_ID fehlt.');
   }
@@ -445,16 +525,32 @@ app.get('/oauth/authorize', (req, res) => {
 // --- 2) Zoom schickt den Host hierher zurueck -----------------------------
 app.get('/oauth/callback', async (req, res) => {
   const { code, error, state } = req.query;
-  if (error) return res.status(400).send(`Zoom hat die Freigabe abgelehnt: ${error}`);
-  if (!code) return res.status(400).send('Kein code von Zoom erhalten.');
 
+  // Der CSRF-Schutz steht bewusst GANZ vorne. Frueher wurde ein
+  // error-Parameter aus der Adresse noch vor dieser Pruefung in die Antwort
+  // gespiegelt - wer jemanden auf /oauth/callback?error=<markup> lockte,
+  // bekam seinen Code auf dieser Origin ausgefuehrt, und das Passwort der
+  // Seite half nicht: der angemeldete Bediener bringt sein Cookie selbst
+  // mit. Ohne gueltigen state kommt jetzt gar nichts mehr zurueck, und alle
+  // Antworten hier sind reiner Text statt HTML.
   const expectedState = parseCookies(req).cl_oauth_state || '';
   if (!expectedState || !safeEqual(String(state || ''), expectedState)) {
     return res
       .status(400)
+      .type('text/plain; charset=utf-8')
       .send('Ungueltige oder abgelaufene Freigabe-Anfrage. Bitte erneut ueber /oauth/authorize starten.');
   }
   setCookie(res, 'cl_oauth_state', '', { maxAge: 0, path: '/oauth', secure: isSecure(req) });
+
+  if (error) {
+    return res
+      .status(400)
+      .type('text/plain; charset=utf-8')
+      .send(`Zoom hat die Freigabe abgelehnt: ${error}`);
+  }
+  if (!code) {
+    return res.status(400).type('text/plain; charset=utf-8').send('Kein code von Zoom erhalten.');
+  }
 
   try {
     const tokenRes = await fetchWithTimeout('https://zoom.us/oauth/token', {
@@ -507,6 +603,7 @@ app.get('/oauth/callback', async (req, res) => {
       console.warn('Freigabe abgelehnt, anderes Zoom-Konto:', account.account_id);
       return res
         .status(403)
+        .type('text/plain; charset=utf-8')
         .send(
           'Diese CueLight-Instanz ist bereits fuer ein anderes Zoom-Konto ' +
           `freigegeben (${existing.account.email || existing.account.account_id}). ` +
@@ -523,10 +620,12 @@ app.get('/oauth/callback', async (req, res) => {
       authorized_at: new Date().toISOString(),
     });
 
+    // Die Kontodaten stammen aus Zooms Antwort, nicht aus eigener Hand -
+    // also auch hier durch escapeHtml, bevor sie in die Seite gehen.
     res.type('html').send(
       '<h1>Freigabe erfolgreich</h1>' +
-      `<p>CueLight darf jetzt im Namen von ${account.email || 'diesem Konto'} Meetings beitreten. ` +
-      'Du kannst dieses Fenster schliessen.</p>'
+      `<p>CueLight darf jetzt im Namen von ${escapeHtml(account.email || 'diesem Konto')} ` +
+      'Meetings beitreten. Du kannst dieses Fenster schliessen.</p>'
     );
   } catch (err) {
     console.error('Fehler in /oauth/callback:', err);
@@ -545,7 +644,7 @@ app.get('/api/version', (req, res) => res.json({ version: VERSION }));
 // gesetztes CUELIGHT_PASSWORD liegt er voellig offen. Ein versehentlich
 // oder boeswillig wiederholter Aufruf soll nicht mitten in der
 // Veranstaltung die Autorisierung kosten.
-app.post('/oauth/reset', rateLimit({ name: 'reset', max: 5, windowMs: 60_000 }), (req, res) => {
+app.post('/oauth/reset', requireAdmin, rateLimit({ name: 'reset', max: 5, windowMs: 60_000 }), (req, res) => {
   clearTokens();
   console.log('Zoom-Freigabe zurueckgesetzt.');
   res.json({ ok: true });
@@ -586,6 +685,18 @@ app.get('/oauth/status', async (req, res) => {
 // Zugriffsschluessel oben und hinter einem Mengenlimit.
 app.get('/api/obf-token', rateLimit({ name: 'obf', max: 30, windowMs: 60_000 }), async (req, res) => {
   try {
+    // Die Eingabe zuerst: Hart ablehnen statt stillschweigend weglassen.
+    // Frueher ging die Anfrage bei einer unsinnigen Nummer trotzdem raus -
+    // nur eben ohne meeting_id, und dann liefert Zoom ein Token, das an gar
+    // kein Meeting gebunden ist. Ein Endpunkt, der im Namen des Hosts
+    // wirkt, soll nichts Weitergehendes ausstellen als das, wonach gefragt
+    // wurde. Vor der Freigabe-Pruefung, damit eine kaputte Anfrage nicht
+    // erst noch einen Token-Refresh bei Zoom ausloest.
+    const meetingNumber = String(req.query.meetingNumber || '');
+    if (!/^\d{9,12}$/.test(meetingNumber)) {
+      return res.status(400).json({ error: 'meetingNumber ungueltig (9-12 Ziffern erwartet)' });
+    }
+
     const accessToken = await getValidAccessToken();
     if (!accessToken) {
       return res.status(401).json({
@@ -594,10 +705,9 @@ app.get('/api/obf-token', rateLimit({ name: 'obf', max: 30, windowMs: 60_000 }),
       });
     }
 
-    const meetingNumber = String(req.query.meetingNumber || '');
     const url = new URL('https://api.zoom.us/v2/users/me/token');
     url.searchParams.set('type', 'onbehalf');
-    if (/^\d{9,12}$/.test(meetingNumber)) url.searchParams.set('meeting_id', meetingNumber);
+    url.searchParams.set('meeting_id', meetingNumber);
 
     const obfRes = await fetchWithTimeout(url, {
       headers: { Authorization: `Bearer ${accessToken}` },
