@@ -135,18 +135,17 @@ jemand meldet, verschwindet die Ansicht.
 
 ### Redezeit
 
-Unter der Uhrzeit steht eine Reihe Knöpfe: **Start** zählt einfach hoch,
-eine **Zahl** startet mit dieser Länge in Minuten. Ein Tipp genügt, und er
-startet immer von null — auch wenn schon etwas läuft. Läuft die Zeit, wird
-aus Start ein **Stopp**, und die Redezeit tritt an die Stelle der Uhrzeit.
+Unter der Uhrzeit steht eine Reihe Knöpfe: Eine **Zahl** startet einen
+Countdown über so viele Minuten, **Start** zählt einfach hoch. Ein Tipp
+genügt, und er startet immer von vorn — auch wenn schon etwas läuft.
 
-Ist die gewählte Länge erreicht, wird die Anzeige orange. Kurz danach
-verschwindet sie von selbst, damit der nächste Redner nicht die Zeit des
-vorherigen vorfindet. Mit **Start** ohne Länge läuft sie, bis jemand
-stoppt, und wird nie orange.
+Während die Zeit läuft, stehen dort nur noch die Zeit und **Stopp**. In der
+letzten Minute wird die Anzeige orange, bei null zählt sie den Überzug
+hoch (`+0:20`), und eine Minute später räumt sie sich selbst weg — damit
+der nächste Redner nicht die Zeit des vorherigen vorfindet.
 
-Stehen Wortmeldungen an, erscheint die Zeit klein oben links — dort nur
-als Anzeige, bedient wird sie im Ruhezustand.
+Stehen Wortmeldungen an, erscheint die Zeit klein oben links. Dort ist sie
+nur Anzeige; bedient wird sie im Ruhezustand.
 
 Wenn auch Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am
 Ende der Adresse die Namen aus. CueLight merkt sich das; `?namen=1`

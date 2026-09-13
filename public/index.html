@@ -1490,16 +1490,12 @@
     let zeitStart = 0;   // Zeitstempel des Starts, 0 = laeuft nicht
     let zeitLimit = 0;   // gewaehlte Laenge in Minuten, 0 = ohne Grenze
 
-    // Nach dem Erreichen der Grenze laeuft die Anzeige noch ein Viertel der
-    // Laenge weiter und verschwindet dann von selbst. Hintergrund: Niemand
-    // denkt nach seinem Vortrag daran, eine Uhr zu stoppen, an der er
-    // vorbeigeht - der Naechste fand sonst eine fremde Zeit vor. Ein
-    // Viertel, aber mindestens eine und hoechstens drei Minuten: Bei einem
-    // Dreiminueter waeren zwei Minuten Nachlauf laenger als der Wechsel
-    // selbst, bei einer halben Stunde waere ein Viertel absurd lang.
-    function nachlaufSekunden(limitMin) {
-      return Math.min(180, Math.max(60, (limitMin * 60) / 4));
-    }
+    // Nach Ablauf zaehlt die Anzeige den Ueberzug hoch und raeumt sich dann
+    // selbst weg - niemand denkt nach seinem Vortrag daran, eine Uhr zu
+    // stoppen, an der er vorbeigeht, und der Naechste faende sonst eine
+    // fremde Zeit vor. Bewusst nur eine Minute: Bei einem Countdown ist bei
+    // 0:00 Schluss, und alles danach ist eine Mahnung und kein Zugestaendnis.
+    const UEBERZUG_SEKUNDEN = 60;
 
     function ladeZeit() {
       try {
@@ -1563,18 +1559,40 @@
       if (laeuft) {
         const sekunden = (Date.now() - zeitStart) / 1000;
 
-        // Ohne Grenze laeuft sie, bis jemand stoppt - "frei" heisst frei.
-        if (zeitLimit > 0 && sekunden >= zeitLimit * 60 + nachlaufSekunden(zeitLimit)) {
-          stoppeZeit();
-          return;
+        // Mit gewaehlter Laenge laeuft die Anzeige RUECKWAERTS: Wer auf die
+        // 10 drueckt, sieht 10:00 - die gedrueckte Zahl steht auf dem
+        // Bildschirm und bestaetigt sich damit selbst. Ohne Laenge gibt es
+        // nichts, wovon man herunterzaehlen koennte, also zaehlt sie hoch.
+        let anzeigeSekunden;
+        let zeichen = '';
+        let ueber = false;
+
+        if (zeitLimit > 0) {
+          const rest = zeitLimit * 60 - sekunden;
+          if (rest <= -UEBERZUG_SEKUNDEN) {
+            stoppeZeit();
+            return;
+          }
+          // Letzte Minute und Ueberzug in Orange - deutlich, aber ohne
+          // Bewegung: Blinken bedeutet auf diesem Bildschirm Wortmeldung.
+          ueber = rest <= 60;
+          if (rest >= 0) {
+            // Aufrunden, damit direkt nach dem Tipp auf die 10 auch 10:00
+            // steht und nicht 9:59.
+            anzeigeSekunden = Math.ceil(rest);
+          } else {
+            anzeigeSekunden = -rest;
+            zeichen = '+';
+          }
+        } else {
+          anzeigeSekunden = sekunden;
         }
 
-        const ueber = zeitLimit > 0 && sekunden >= zeitLimit * 60;
-        const [min, sek] = zeitText(sekunden);
+        const [min, sek] = zeitText(anzeigeSekunden);
 
-        swMinEl.textContent = min;
+        swMinEl.textContent = zeichen + min;
         swSecEl.textContent = sek;
-        btMinEl.textContent = min;
+        btMinEl.textContent = zeichen + min;
         btSecEl.textContent = sek;
         stopwatchEl.classList.toggle('cl-over', ueber);
         boardTimerEl.classList.toggle('cl-over', ueber);
@@ -1584,10 +1602,13 @@
       // faehrt darunter aus (siehe CSS).
       idleMainEl.classList.toggle('cl-running', laeuft);
       timerMainBtn.textContent = laeuft ? 'Stopp' : 'Start';
-      timerLabelEl.style.visibility = laeuft ? 'hidden' : '';
-
+      // Waehrend die Zeit laeuft stehen dort nur noch die Zeit und "Stopp".
+      // Die Laengen braucht in dem Moment niemand: Die Anzeige raeumt sich
+      // nach dem Ende selbst weg, die Knoepfe sind also wieder da, bevor
+      // der Naechste auf die Buehne kommt.
+      timerLabelEl.style.display = laeuft ? 'none' : '';
       for (const el of timerButtonsEl.querySelectorAll('.cl-min')) {
-        el.classList.toggle('cl-chosen', laeuft && Number(el.dataset.min) === zeitLimit);
+        el.style.display = laeuft ? 'none' : '';
       }
 
       // Auf dem Board nur, wenn dort auch Kacheln stehen - im Ruhezustand
