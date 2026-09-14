@@ -427,7 +427,10 @@
     border-radius: var(--r-lg);
     background: var(--notice-bg);
     color: var(--bg);
-    font-size: clamp(13px, 1.5vw, 17px);
+    /* Hoehenbewusst: hochkant faellt ein reiner vw-Wert auf seine
+       Untergrenze, und "Verbindung getrennt" ist die eine Meldung, die aus
+       der Entfernung lesbar sein muss. */
+    font-size: clamp(15px, min(2.2vw, 2.8vh), 22px);
     font-weight: 600;
     line-height: 1.4;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
@@ -557,7 +560,9 @@
 
   .cl-connecting-text {
     color: var(--muted);
-    font-size: clamp(18px, 2.2vw, 28px);
+    /* Wie beim Warnbalken: "Im Warteraum" beantwortet die Frage, die sich
+       der Bediener in genau diesem Moment stellt. */
+    font-size: clamp(20px, min(3.2vw, 4vh), 34px);
     letter-spacing: 0.02em;
   }
 
@@ -686,8 +691,10 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Varianten derselben Aktion: umrandet statt gefuellt. */
-  .cl-min {
+  /* Varianten derselben Aktion: umrandet statt gefuellt. Die Schritt-
+     knoepfe "-" und "+" sehen genauso aus - sie sind dieselbe Art Angebot. */
+  .cl-min,
+  .cl-step {
     width: 44px;
     height: 44px;
     padding: 0;
@@ -702,11 +709,12 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Gewaehlte Laenge: Zustandsanzeige, kein Angebot - deshalb nur heller,
-     nicht gefuellt. */
-  .cl-min.cl-chosen {
-    border-color: #9a9ab5;
-    color: #e4e4f0;
+  /* Abgeblendet statt ausgeblendet: ein verschwindender Knopf zieht die
+     zentrierte Reihe zusammen, und "Stopp" wandert unter dem Finger weg.
+     Die Flaeche bleibt stehen, nur ihre Bedeutung faellt weg. */
+  .cl-step[disabled] {
+    opacity: 0.3;
+    cursor: default;
   }
 
   /* Kopfband ueber den Kacheln, auf deren linker Kante.
@@ -908,7 +916,8 @@
 
   #lowerAllBtn.cl-pressed,
   #leaveBtn.cl-pressed,
-  .cl-min.cl-pressed {
+  .cl-min.cl-pressed,
+  .cl-step.cl-pressed {
     filter: brightness(1.35);
   }
 
@@ -1218,9 +1227,16 @@
         <div id="timerBar">
           <div id="timerLabel">REDEZEIT IN MINUTEN</div>
           <div id="timerButtons">
+            <!-- Feinjustierung links und rechts der Hauptflaeche, nicht
+                 neben der grossen Ziffer: Was man antippt, gehoert in die
+                 Reihe, in der ohnehin alles Antippbare steht. Die 4 entfaellt -
+                 sie ist von der 3 wie von der 5 aus einen Tipp entfernt. -->
+            <button id="timerMinusBtn" class="cl-step" type="button"
+                    style="display:none;" aria-label="Eine Minute weniger">−</button>
             <button id="timerMainBtn" type="button">Start</button>
+            <button id="timerPlusBtn" class="cl-step" type="button"
+                    style="display:none;" aria-label="Eine Minute mehr">+</button>
             <button class="cl-min" type="button" data-min="3">3</button>
-            <button class="cl-min" type="button" data-min="4">4</button>
             <button class="cl-min" type="button" data-min="5">5</button>
             <button class="cl-min" type="button" data-min="10">10</button>
             <button class="cl-min" type="button" data-min="15">15</button>
@@ -1255,7 +1271,11 @@
   <div id="toasts" aria-live="polite"></div>
   <div id="debug"></div>
 
-  <!-- Zoom Meeting SDK (Component View) -->
+  <!-- Zoom Meeting SDK, Client View (ZoomMtg.* mit Zooms Vendor-React).
+       NICHT Component View - das waere ZoomMtgEmbedded aus
+       zoom-meeting-embedded-X.Y.Z.min.js. Die beiden haben getrennte
+       Doku-Baeume mit unterschiedlichem Funktionsumfang, und die
+       Verwechslung fuehrt bei jeder Recherche in die falsche Referenz. -->
   <!-- Reihenfolge wichtig: Vendor-Libs zuerst, das Haupt-Bundle erwartet
        React/Redux/Lodash bereits als globale Variablen. -->
   <script src="https://source.zoom.us/6.2.0/lib/vendor/react.min.js"></script>
@@ -1294,6 +1314,8 @@
     const timerMainBtn = document.getElementById('timerMainBtn');
     const timerLabelEl = document.getElementById('timerLabel');
     const timerButtonsEl = document.getElementById('timerButtons');
+    const schrittMinus = document.getElementById('timerMinusBtn');
+    const schrittPlus = document.getElementById('timerPlusBtn');
     const boardTimerEl = document.getElementById('boardTimer');
     const btMinEl = document.getElementById('btMin');
     const btSecEl = document.getElementById('btSec');
@@ -1556,10 +1578,19 @@
     function ladeZeit() {
       try {
         const d = JSON.parse(localStorage.getItem(ZEIT_KEY) || 'null');
-        if (d && d.start) {
-          zeitStart = d.start;
-          zeitLimit = d.limit || 0;
+        if (!d || !d.start) return;
+        // Eine Zeit, die eine ganze Veranstaltung ueberdauert hat, ist keine
+        // laufende Zeit mehr, sondern ein vergessener Tipp. Bei gewaehlter
+        // Laenge raeumt der Ueberzug das selbst weg - die freie Stoppuhr hat
+        // keine Grenze, deshalb hier eine. Vier Stunden sind grosszuegig
+        // genug, dass ein Neuladen mitten in einer langen Veranstaltung die
+        // Zeit noch rettet - genau wofuer die Speicherung da ist.
+        if (Date.now() - d.start > 4 * 60 * 60 * 1000) {
+          localStorage.removeItem(ZEIT_KEY);
+          return;
         }
+        zeitStart = d.start;
+        zeitLimit = d.limit || 0;
       } catch {
         /* dann eben nicht */
       }
@@ -1635,6 +1666,8 @@
     // Wird jede Sekunde aus render() aufgerufen.
     function renderZeit() {
       const laeuft = zeitStart > 0;
+      // Auch ausserhalb des Blocks gebraucht: der "-"-Knopf haengt daran.
+      let restSekunden = null;
 
       if (laeuft) {
         const sekunden = (Date.now() - zeitStart) / 1000;
@@ -1653,6 +1686,7 @@
             stoppeZeit();
             return;
           }
+          restSekunden = rest;
           // Letzte Minute und Ueberzug in Orange - deutlich, aber ohne
           // Bewegung: Blinken bedeutet auf diesem Bildschirm Wortmeldung.
           ueber = rest <= 60;
@@ -1694,14 +1728,42 @@
         el.style.display = laeuft ? 'none' : '';
       }
 
+      // Nur bei gewaehlter Laenge: bei der freien Stoppuhr gibt es keine
+      // Grenze, die sich verschieben liesse.
+      const zeigeSchritte = laeuft && zeitLimit > 0;
+      schrittMinus.style.display = zeigeSchritte ? '' : 'none';
+      schrittPlus.style.display = zeigeSchritte ? '' : 'none';
+      // "-" nur, wenn danach noch Restzeit UEBRIG BLEIBT. Bei 0:45 waere das
+      // Ergebnis -0:15, und 45 s spaeter raeumt sich die Anzeige mitten im
+      // Vortrag selbst weg. Ueber einer Minute Rest ist das ausgeschlossen.
+      schrittMinus.disabled = !(restSekunden > UEBERZUG_SEKUNDEN);
+
       // Auf dem Board nur, wenn dort auch Kacheln stehen - im Ruhezustand
       // waere es dieselbe Zahl zweimal.
       boardTimerEl.style.display = laeuft && raisedHands.size > 0 ? '' : 'none';
     }
 
+    // Eine Minute mehr oder weniger. Verschoben wird die GRENZE, nicht der
+    // Start: die bereits gelaufene Zeit bleibt stehen, nur das Ziel wandert.
+    function verschiebeGrenze(deltaMin) {
+      if (!zeitStart || zeitLimit <= 0) return;
+      const rest = zeitLimit * 60 - (Date.now() - zeitStart) / 1000;
+      // Dieselbe Schwelle wie bei der Knopfsteuerung - der Knopf ist dann
+      // zwar abgeblendet, aber eine Tastatur oder ein Doppeltipp kommt
+      // trotzdem hier an.
+      if (deltaMin < 0 && rest <= UEBERZUG_SEKUNDEN) return;
+      zeitLimit = Math.max(1, zeitLimit + deltaMin);
+      // Ohne das faellt die Korrektur bei einem Neuladen wieder weg.
+      speichereZeit();
+      // Sofort mitziehen statt erst zum naechsten Sekundentakt.
+      renderZeit();
+    }
+
     timerButtonsEl.addEventListener('click', (e) => {
-      const el = e.target.closest('#timerMainBtn, .cl-min');
+      const el = e.target.closest('#timerMainBtn, #timerMinusBtn, #timerPlusBtn, .cl-min');
       if (!el) return;
+      if (el === schrittMinus) return verschiebeGrenze(-1);
+      if (el === schrittPlus) return verschiebeGrenze(+1);
       if (el === timerMainBtn) {
         if (zeitStart) stoppeZeit();
         else starteZeit(0);
@@ -1910,7 +1972,7 @@
     }
 
     document.addEventListener('pointerdown', (e) => {
-      const el = e.target.closest('.cl-row, #lowerAllBtn, #leaveBtn, #timerMainBtn, .cl-min');
+      const el = e.target.closest('.cl-row, #lowerAllBtn, #leaveBtn, #timerMainBtn, .cl-min, .cl-step');
       if (!el) return;
       // Ohne Host-Rechte bewirkt ein Tipp auf eine Kachel nichts - dann soll
       // sie sich auch nicht gedrueckt anfuehlen.
@@ -2073,11 +2135,14 @@
             return;
           }
 
-          // CueLight selbst nicht mitzaehlen.
-          const selbst = attendees.find((a) => a.self);
+          // CueLight selbst nicht mitzaehlen. "self" ist in Zooms
+          // Web-SDK-Doku nirgends beschrieben - dokumentiert ist allein
+          // "Index 0 is the current user". Deshalb zuerst das Feld, das
+          // heute zuverlaessig kommt, und notfalls der dokumentierte Platz.
+          const selbst = attendees.find((a) => a.self) || attendees[0];
           if (selbst && selbst.userName) eigenerName = selbst.userName;
 
-          const andere = attendees.filter((a) => !a.self);
+          const andere = attendees.filter((a) => a !== selbst);
           totalAttendees = andere.length;
           // Fuer den Ruhezustand merken - die Daten sind ohnehin da.
           teilnehmer = andere.map((a) => ({
@@ -2101,10 +2166,15 @@
           }
           hideConnectionWarning();
 
-          const selfAttendee = attendees.find((a) => a.self);
-          isHostOrCoHost = Boolean(selfAttendee && (selfAttendee.isHost || selfAttendee.isCoHost));
+          // Dieselbe Ermittlung wie oben - kein zweites Suchen.
+          isHostOrCoHost = Boolean(selbst && (selbst.isHost || selbst.isCoHost));
 
           if (DEBUG) {
+            // Ohne das bleibt der Block auf display:none stehen und die
+            // Diagnosezeile, die die README fuer genau diesen Fall
+            // verspricht, erscheint nie - auf einem iPad ohne Konsole war
+            // sie damit wirkungslos.
+            debugEl.style.display = 'block';
             debugEl.textContent = `Teilnehmer: ${attendees.length} | Rohdaten siehe Konsole (F12)`;
             log('Aktuelle Teilnehmerliste (roh):', res);
           }
@@ -2128,7 +2198,13 @@
                   userId: a.userId,
                   hasSpoken: !muted, // war beim Erkennen schon frei -> zaehlt als "schon dran"
                 });
-                log('Hand erkannt:', a.userName, a);
+                // Nur der Name, nicht das ganze Objekt: darin steckt neben
+                // userId und userGuid auch die Avatar-URL. log() schreibt
+                // bedingungslos - die Konsole einer oeffentlich erreichbaren
+                // Instanz ist kein Ort fuer Rohdaten. Vollstaendig nur mit
+                // ?debug=1, also wenn jemand bewusst danach sucht.
+                log('Hand erkannt:', a.userName);
+                if (DEBUG) log('Hand erkannt (roh):', a);
               } else {
                 // Mikro-Status kann sich aendern, waehrend die Hand oben
                 // bleibt (z.B. wird kurz vor dem Sprechen freigeschaltet).
@@ -2363,7 +2439,10 @@
       // "0 Teilnehmende" erschien, obwohl gar keine Verbindung bestand.
       // Der alte Name bleibt als Rueckfallebene stehen, falls eine kuenftige
       // SDK-Version ihn wieder verwendet.
-      log('Meeting-Status:', data);
+      // Nur der Statuswert: data traegt je nach Ereignis auch Teilnehmer-
+      // angaben. Das vollstaendige Objekt nur mit ?debug=1.
+      log('Meeting-Status:', data && (data.meetingStatus ?? data.status));
+      if (DEBUG) log('Meeting-Status (roh):', data);
       const status = data && (data.meetingStatus ?? data.status);
       // Das SDK schickt auf demselben Kanal auch Ereignisse ohne Status
       // (etwa { detail: … }) - die gehen uns nichts an.
@@ -2683,13 +2762,26 @@
               stoppeBeitrittsWaechter();
               // Zooms eigene Fehlermeldung mit anzeigen - ohne sie ist jede
               // Fehlersuche Raterei.
-              const detail = [err && err.errorCode, err && (err.reason || err.message)]
-                .filter(Boolean)
-                .join(': ');
+              // Zooms Rohcode gehoert ins Log, nicht ans Rednerpult. Fuer
+              // den einen Fall, der hier regelmaessig auftritt, steht
+              // stattdessen die Handlung auf dem Bildschirm: 4017 kam mit
+              // Web-SDK 6.0.0 und heisst, dass der per OAuth freigegebene
+              // Zoom-Nutzer gerade nicht im Meeting ist. Nach Meeting-Nummer
+              // und Passwort zu fragen fuehrt dann in die Irre - die stimmen.
+              // Laut devforum meldet Zoom denselben Fall gelegentlich als
+              // MEETING_FAIL_UNKNOWN, deshalb zusaetzlich die Textpruefung.
+              const code = err && err.errorCode;
+              const roh = String((err && (err.reason || err.message)) || '');
+              const nutzerFehlt =
+                code === 4017 || /AUTHORIZED_USER_NOT_INMEETING/i.test(roh);
+              const detail = [code, roh].filter(Boolean).join(': ');
               toast(
-                'Beitritt fehlgeschlagen' + (detail ? ` (${detail})` : '') +
-                '. Stimmen Meeting-Nummer und Passwort, und gehoert das ' +
-                'Meeting zum freigegebenen Zoom-Konto?',
+                nutzerFehlt
+                  ? 'Der freigegebene Zoom-Nutzer ist noch nicht im Meeting. ' +
+                    'Kurz warten und erneut starten.'
+                  : 'Beitritt fehlgeschlagen' + (detail ? ` (${detail})` : '') +
+                    '. Stimmen Meeting-Nummer und Passwort, und gehoert das ' +
+                    'Meeting zum freigegebenen Zoom-Konto?',
                 { error: true, ms: 15000 }
               );
               setupEl.style.display = '';

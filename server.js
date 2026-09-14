@@ -224,7 +224,11 @@ setInterval(() => {
 // Git-Tag - dann stimmt die Anzeige auch ohne Handarbeit in package.json.
 const VERSION = process.env.CUELIGHT_VERSION || PACKAGE_VERSION;
 
-app.get('/healthz', (req, res) => res.json({ ok: true, version: VERSION }));
+// Bewusst ohne Versionsnummer: Diese Route liegt VOR der Zugriffspruefung,
+// ein unangemeldeter Aufruf verriete sonst die genau laufende Fassung. Der
+// Docker-Healthcheck prueft ohnehin nur, ob geantwortet wird. Die Version
+// steht weiterhin unter /api/version - hinter dem Passwort.
+app.get('/healthz', (req, res) => res.json({ ok: true }));
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -390,14 +394,17 @@ function requireAdmin(req, res, next) {
 app.use(express.json({ limit: '4kb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Sicherheitsnetz: ein einzelner unerwarteter Fehler soll waehrend der
-// Veranstaltung nichts stillschweigend kaputtlassen. Bewusst MIT Exit:
-// ein Prozess in undefiniertem Zustand ist gefaehrlicher als ein
-// Neustart, den Docker dank "restart: unless-stopped" in unter einer
-// Sekunde erledigt.
+// Bewusst OHNE Exit: Seit Node 15 beendet ein unbehandeltes Promise den
+// Prozess von selbst - dieser Handler unterdrueckt das absichtlich. Eine
+// fehlgeschlagene Zoom-Anfrage darf die Anzeige nicht mitten in der
+// Veranstaltung abschiessen; der geloggte Fehler ist das kleinere Uebel.
 process.on('unhandledRejection', (reason) => {
   console.error('[Unhandled Rejection]', reason);
 });
+
+// Hier dagegen bewusst MIT Exit: ein Prozess in undefiniertem Zustand ist
+// gefaehrlicher als ein Neustart, den Docker dank "restart: unless-stopped"
+// in unter einer Sekunde erledigt.
 process.on('uncaughtException', (err) => {
   console.error('[Uncaught Exception]', err);
   process.exit(1);
@@ -423,9 +430,22 @@ function saveTokens(tokens) {
   fs.mkdirSync(path.dirname(TOKEN_FILE), { recursive: true, mode: 0o700 });
   // Atomar schreiben: ein Absturz mitten im Schreiben darf keine halbe
   // (= unbrauchbare) Datei hinterlassen.
-  const tmp = `${TOKEN_FILE}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(tokens, null, 2), { mode: 0o600 });
-  fs.renameSync(tmp, TOKEN_FILE);
+  // Zufaelliger Name statt eines festen: Eine aus einem Absturz liegen
+  // gebliebene .tmp wuerde sonst wiederbeschrieben - und writeFileSync setzt
+  // "mode" nur beim ANLEGEN, die alte Datei behielte also ihre Rechte und
+  // wuerde per rename zur echten Token-Datei befoerdert.
+  const tmp = `${TOKEN_FILE}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    fs.writeFileSync(tmp, JSON.stringify(tokens, null, 2), { mode: 0o600 });
+    fs.renameSync(tmp, TOKEN_FILE);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmp);
+    } catch {
+      /* war nie da oder schon weg */
+    }
+    throw err;
+  }
 }
 
 function clearTokens() {
@@ -583,9 +603,28 @@ app.get('/oauth/callback', async (req, res) => {
       if (meRes.ok) {
         const me = await meRes.json();
         account = { account_id: me.account_id, email: me.email, display_name: me.display_name };
+      } else {
+        // Frueher stumm - und genau das war das Problem: ohne Log gab es
+        // keinen Hinweis darauf, dass die Bindung gleich uebersprungen wird.
+        console.error('Kontodaten nicht abrufbar:', meRes.status, await meRes.text());
       }
     } catch (err) {
       console.warn('Konnte Kontodaten nicht abrufen:', err);
+    }
+
+    // Ohne verifiziertes Konto wird NICHTS gespeichert. Vorher lief es
+    // andersherum: blieb account leer, uebersprang die Pruefung unten mangels
+    // account_id den Vergleich - und eine bestehende Bindung liess sich
+    // umgehen, indem man den Abruf scheitern liess. Lieber ein ehrlicher
+    // Fehlschlag als eine Freigabe, von der niemand weiss, wem sie gehoert.
+    if (!account.account_id) {
+      return res
+        .status(502)
+        .type('text/plain; charset=utf-8')
+        .send(
+          'Zoom-Konto konnte nicht ueberprueft werden, die Freigabe wurde ' +
+          'deshalb nicht gespeichert. Bitte spaeter erneut versuchen.'
+        );
     }
 
     // Das erste Konto, das freigibt, gehoert zu dieser Instanz. Ein
