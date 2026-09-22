@@ -425,7 +425,34 @@ function anmerkungen(werte) {
   sammle(platzhalter, 'Abgeschnittener Platzhalter');
   sammle([...klein], 'Zu kleine antippbare Flaeche');
 
-  const anzahl = raus.length;
+  // Die kleinste gemessene Zeitflaeche als Zahl - und zwar auch dann,
+  // wenn nichts aufgefallen ist.
+  //
+  // WARUM: "Nichts aufgefallen" ist genau die Antwort, bei der ein
+  // kaputter Pruefer unsichtbar bleibt. Greift die Auswahl AM_PULT eines
+  // Tages nicht mehr - umbenannte Klasse, neue Auszeichnung - liefe die
+  // strengere Pruefung ins Leere und meldete weiterhin Ruhe. Eine Zahl,
+  // die man lesen kann, verraet das sofort; ein fehlender Treffer wird
+  // ausdruecklich zur Warnung.
+  const pultziele = [];
+  for (const w of werte) {
+    for (const t of (w.tippziele || [])) {
+      if (t.amPult) pultziele.push({ w, t, kante: Math.min(t.breite, t.hoehe) });
+    }
+  }
+  if (!pultziele.length) {
+    melde('warning', 'Massstab',
+      'Keine Zeitflaeche erkannt - die strengere Pruefung lief ins Leere.');
+  } else {
+    const kleinste = pultziele.reduce((a, b) => (b.kante < a.kante ? b : a));
+    melde('notice', 'Zeitflaechen',
+      `${pultziele.length} gemessen, kleinste ${kleinste.t.was} mit ` +
+      `${kleinste.t.breite}x${kleinste.t.hoehe} (${kleinste.w.groesse}), verlangt sind 64`);
+  }
+
+  // Nur Warnungen und Fehler zaehlen als Auffaelligkeit - die Notizen
+  // oben sind Messwerte, keine Befunde.
+  const anzahl = raus.filter((z) => !z.startsWith('::notice')).length;
   melde('notice', 'Darstellung', anzahl
     ? `${werte.length} Aufnahmen, ${anzahl} Auffaelligkeiten`
     : `${werte.length} Aufnahmen, nichts aufgefallen`);
@@ -543,6 +570,25 @@ function bericht(werte) {
       z.push(`  ${[...new Set(wo)].join(' · ')}`);
     }
     z.push('');
+  }
+
+  // Die kleinste gemessene Zeitflaeche steht auch dann da, wenn nichts
+  // aufgefallen ist: "Keine" allein beweist nicht, dass ueberhaupt
+  // geprueft wurde.
+  const pultziele = [];
+  for (const w of werte) {
+    for (const t of (w.tippziele || [])) {
+      if (t.amPult) pultziele.push({ w, t, kante: Math.min(t.breite, t.hoehe) });
+    }
+  }
+  if (!pultziele.length) {
+    z.push('**Keine Zeitflaeche erkannt** - die strengere Pruefung lief ins Leere.', '');
+  } else {
+    const k = pultziele.reduce((a, b) => (b.kante < a.kante ? b : a));
+    z.push(
+      `Zeitflaechen: ${pultziele.length} gemessen, kleinste \`${k.t.was}\` mit ` +
+      `${k.t.breite}x${k.t.hoehe} (${k.w.groesse}) bei verlangten 64.`, ''
+    );
   }
 
   return z.join('\n');
