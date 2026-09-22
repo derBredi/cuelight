@@ -88,6 +88,19 @@ const ZUSTAENDE = [
  * ohne echtes Meeting - genauso wie tools/screenshots.js es schon tut.
  */
 function stelleEin({ art, kacheln, zeit, namen, langerName, liste }) {
+  // Aufklapper aufklappen. Was zugeklappt ist, sieht niemand - und was
+  // niemand sieht, kann auch nicht falsch stehen. Gemessen wird deshalb
+  // der unguenstigere Fall: alles offen.
+  //
+  // WARUM DAS HIER STEHT: Ohne diese Zeile meldete der erste Lauf 20
+  // unerreichbare Elemente - #resetAuthBtn und cl-hint, in sechs
+  // Groessen. Die liegen im zugeklappten <details> "Lesezeichen-Link und
+  // Zoom-Freigabe". Chromium gibt solchen Knoten weiterhin ein Rechteck,
+  // also ragten sie rechnerisch aus dem Fenster, waehrend die Aufnahme
+  // eine vollstaendig passende Karte zeigte. Ein Fehlalarm des
+  // Werkzeugs, kein Fehler der Anwendung.
+  for (const aufklapper of document.querySelectorAll('details')) aufklapper.open = true;
+
   const setup = document.getElementById('setup');
   const board = document.getElementById('board');
 
@@ -147,6 +160,13 @@ function messe(wahl) {
 
   const nameVon = (el) => (el.id ? `#${el.id}` : (el.className || el.tagName.toLowerCase()));
 
+  // Wird dieses Element ueberhaupt dargestellt? Der Gegencheck zum
+  // Aufklappen oben: Bleibt irgendwo etwas uebrig, das nicht gerendert
+  // wird, soll es nicht als Befund erscheinen.
+  const sichtbar = (el) => (typeof el.checkVisibility === 'function'
+    ? el.checkVisibility({ visibilityProperty: true })
+    : true);
+
   /** Der naechste Vorfahr, in dem man scrollen kann. */
   function scrollbarerVorfahr(el) {
     let p = el.parentElement;
@@ -161,6 +181,7 @@ function messe(wahl) {
   // 1. Ragt etwas aus dem Fenster - und kommt man hin?
   const ueberlauf = [];
   for (const el of ziel.querySelectorAll('*')) {
+    if (!sichtbar(el)) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     const raus = {
@@ -179,6 +200,7 @@ function messe(wahl) {
   //    WCAG 2.5.8 nimmt Ziele "in a sentence or block of text" aus.
   const tippziele = [];
   for (const el of ziel.querySelectorAll('button, a, input, select, .cl-row')) {
+    if (!sichtbar(el)) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     if (getComputedStyle(el).display === 'inline') continue;
@@ -194,6 +216,7 @@ function messe(wahl) {
   // 3. Abgeschnittener Text - nur dort, wo ueberhaupt gekuerzt wird.
   const gekuerzt = [];
   for (const el of ziel.querySelectorAll('*')) {
+    if (!sichtbar(el)) continue;
     if (!el.getClientRects().length) continue;
     if (getComputedStyle(el).textOverflow !== 'ellipsis') continue;
     if (el.scrollWidth > el.clientWidth + 1) {
@@ -212,6 +235,7 @@ function messe(wahl) {
   const platzhalter = [];
   const stift = document.createElement('canvas').getContext('2d');
   for (const el of ziel.querySelectorAll('input[placeholder]')) {
+    if (!sichtbar(el)) continue;
     if (!el.getClientRects().length || el.value) continue;
     const text = el.placeholder;
     if (!text) continue;
