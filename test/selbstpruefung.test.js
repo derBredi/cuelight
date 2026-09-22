@@ -94,7 +94,21 @@ test('jeder Befund hat Stufe, Gegenstand und einen ganzen Satz', () => {
       assert.ok(['fehlt', 'hinweis', 'gut'].includes(b.stufe), `unbekannte Stufe: ${b.stufe}`);
       assert.ok(b.was && b.was.length > 2, 'Gegenstand fehlt');
       assert.ok(b.satz && b.satz.length > 20, `zu knapper Satz: ${b.satz}`);
-      assert.ok(b.satz.trim().endsWith('.'), `kein ganzer Satz: ${b.satz}`);
+
+      // Ganze Saetze, keine Stichworte - aber NICHT zwingend mit einem
+      // Punkt am Ende.
+      //
+      // Der Test hat hier zuerst auf einen Schlusspunkt bestanden und
+      // dabei die nuetzlichste Meldung beanstandet: die zum
+      // Datenverzeichnis, die mit "chown -R 1000:1000 ./data" aufhoert.
+      // Ein Punkt hinter einem Befehl wird mitkopiert und macht ihn
+      // falsch. Gefordert ist deshalb nur, dass irgendwo ein Satz
+      // endet - ein Stichwort wie "Rechte fehlen" faellt damit immer
+      // noch durch.
+      assert.ok(
+        /\.\s/.test(b.satz) || b.satz.trim().endsWith('.'),
+        `kein ganzer Satz: ${b.satz}`
+      );
     }
   }
 });
