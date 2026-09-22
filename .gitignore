@@ -10,3 +10,7 @@ zoom-oauth-tokens.json
 
 .env
 .env.*
+# ... aber die Vorlage gehoert ins Repository. Ohne diese Zeile faengt
+# ".env.*" auch sie ein, und der einzige Ort, an dem steht, WAS
+# einzutragen ist, waere nie mitgeliefert worden.
+!.env.example

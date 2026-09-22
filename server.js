@@ -23,6 +23,9 @@ const jwt = require('jsonwebtoken');
 // hatte, den man ihr nicht ansieht, und weil sie sich so pruefen laesst,
 // ohne den Server zu starten. Die Begruendung steht in lib/ablauf.js.
 const { ablaufZeitpunkt } = require('./lib/ablauf');
+// Sagt beim Start, was noch fehlt - und zwar an einer Stelle statt in drei
+// verstreuten console-Aufrufen. Siehe lib/selbstpruefung.js.
+const { selbstpruefung, berichtAlsText } = require('./lib/selbstpruefung');
 
 const app = express();
 app.disable('x-powered-by');
@@ -99,25 +102,10 @@ const ADMIN_COOKIE = ADMIN_TOKEN
 // kompletten Beitritt damit.
 const ENABLE_CSP = process.env.CUELIGHT_ENABLE_CSP === '1';
 
-if (!CLIENT_ID || !CLIENT_SECRET) {
-  console.warn(
-    '[Achtung] ZOOM_CLIENT_ID / ZOOM_CLIENT_SECRET fehlen. Bitte in der ' +
-    'docker-compose.yml unter "environment:" eintragen - ohne sie kann ' +
-    'CueLight keinem Meeting beitreten.'
-  );
-}
-console.log(
-  ADMIN_TOKEN
-    ? 'Admin-Passwort aktiv: die Zoom-Freigabe (/oauth/authorize, /oauth/reset) verlangt zusaetzlich CUELIGHT_ADMIN_PASSWORD.'
-    : 'Kein Admin-Passwort gesetzt - wer CueLight bedienen darf, darf auch die Zoom-Freigabe aendern. Fuer eine Instanz mit nur einem Bediener in Ordnung.'
-);
-console.log(
-  ACCESS_TOKEN
-    ? 'Passwortschutz aktiv: beim ersten Aufruf fragt CueLight einmal danach.'
-    : 'Kein Passwort gesetzt (CUELIGHT_PASSWORD leer) - jeder, der die ' +
-      'Adresse kennt, kann CueLight benutzen. In Ordnung im Heimnetz oder ' +
-      'hinter einer eigenen Zugriffskontrolle, sonst bitte setzen.'
-);
+// Die Selbstpruefung laeuft ganz unten, direkt vor app.listen - dort ist
+// bekannt, ob das Datenverzeichnis beschreibbar ist und ob schon eine
+// Freigabe vorliegt. Beides braucht die Pruefung, und beides steht hier
+// oben noch nicht fest.
 
 // -------------------------------------------------------------------
 // Kleine Helfer ohne zusaetzliche Abhaengigkeiten
@@ -805,6 +793,37 @@ app.post('/api/signature', rateLimit({ name: 'signature', max: 60, windowMs: 60_
   const signature = jwt.sign(payload, CLIENT_SECRET, { algorithm: 'HS256' });
   res.json({ signature });
 });
+
+// --- Selbstpruefung beim Start ------------------------------------------
+//
+// Sie bricht NICHTS ab. CueLight steht in einem Saal und soll laufen; ein
+// Dienst, der wegen einer fehlenden Angabe gar nicht erst startet, zeigt
+// auf dem Pult einen Browserfehler statt einer Seite, die sagt, was zu
+// tun ist. Gemeldet wird deutlich, beendet wird nicht.
+function datenOrdnerBeschreibbar() {
+  const ordner = path.dirname(TOKEN_FILE);
+  try {
+    fs.mkdirSync(ordner, { recursive: true, mode: 0o700 });
+    // Wirklich schreiben statt nur fragen: fs.accessSync sagt bei einem
+    // gemounteten Verzeichnis mit fremden Rechten schon einmal "geht",
+    // und beim ersten echten Schreibversuch kommt dann EACCES.
+    const probe = path.join(ordner, `.schreibprobe.${process.pid}`);
+    fs.writeFileSync(probe, '');
+    fs.unlinkSync(probe);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+console.log(
+  berichtAlsText(
+    selbstpruefung(process.env, {
+      datenOrdnerBeschreibbar: datenOrdnerBeschreibbar(),
+      freigabeVorhanden: Boolean(loadTokens()),
+    })
+  )
+);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {

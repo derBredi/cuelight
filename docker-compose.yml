@@ -1,50 +1,57 @@
-# CueLight - alles, was nötig ist, steht in dieser einen Datei.
+# CueLight - die Stack-Datei. Hier ist NICHTS einzutragen.
 #
+#   cp .env.example .env     # einmalig: Zugangsdaten hinein
 #   docker compose up -d
 #
-# In Portainer: "Stacks" -> "Add stack" -> diesen Text einfügen,
-# die beiden Werte unten eintragen, "Deploy".
+# WARUM HIER NICHTS MEHR STEHT: Frueher standen die Zugangsdaten direkt in
+# dieser Datei. Das funktioniert - bis jemand sie neu herunterlaedt, um
+# eine neue Fassung zu bekommen. Dann sind die eigenen Werte weg, und zwar
+# ohne Vorwarnung. Seit sie in der .env stehen, laesst sich diese Datei
+# jederzeit gefahrlos ersetzen.
+#
+# IN PORTAINER: "Stacks" -> "Add stack" -> diesen Text einfuegen, unten
+# unter "Environment variables" dieselben Namen wie in der .env.example
+# eintragen, "Deploy". Auch dort ist an diesem Text nichts zu aendern.
 
 services:
   cuelight:
-    # Vor einer Veranstaltung besser auf eine getestete Fassung festnageln,
-    # damit ein "docker compose pull" am Vorabend nicht unbemerkt etwas
-    # anderes zieht - die Tags heissen wie die Git-Tags, z. B.
-    # ghcr.io/derbredi/cuelight:v1.3.5 (NICHT die Nummer aus package.json,
-    # die wird nicht gepflegt).
-    image: ghcr.io/derbredi/cuelight:latest
+    # FESTE FASSUNG, kein "latest".
+    #
+    # Mit "latest" zieht ein "docker compose pull" am Vorabend einer
+    # Veranstaltung, was zuletzt veroeffentlicht wurde - ohne dass jemand
+    # das entschieden haette. Eine Nummer hier heisst: Es aendert sich
+    # genau dann etwas, wenn du diese Zeile aenderst.
+    #
+    # Aktualisieren:  Zeile anpassen, dann
+    #                 docker compose pull && docker compose up -d
+    # Welche Fassungen es gibt: github.com/derBredi/cuelight/releases
+    image: ghcr.io/derbredi/cuelight:1.3.8
     container_name: cuelight
     restart: unless-stopped
+
+    # Die Werte kommen aus der .env-Datei daneben (oder, in Portainer, aus
+    # dem Feld "Environment variables").
+    #
+    # Das ":?" bei den beiden Pflichtangaben ist Absicht: Fehlen sie,
+    # bricht "docker compose up" sofort mit genau diesem Satz ab, statt
+    # einen Container zu starten, der erst beim Beitritt scheitert.
     environment:
-      # Aus der eigenen Zoom-App: Marketplace -> Develop -> Build App ->
-      # General App -> "App Credentials". Beide Werte stehen dort direkt
-      # untereinander (siehe README, Schritt 1).
-      ZOOM_CLIENT_ID: "hier_eintragen"
-      ZOOM_CLIENT_SECRET: "hier_eintragen"
+      ZOOM_CLIENT_ID: ${ZOOM_CLIENT_ID:?In der .env eintragen - siehe .env.example}
+      ZOOM_CLIENT_SECRET: ${ZOOM_CLIENT_SECRET:?In der .env eintragen - siehe .env.example}
+      CUELIGHT_PASSWORD: ${CUELIGHT_PASSWORD:-}
+      CUELIGHT_ADMIN_PASSWORD: ${CUELIGHT_ADMIN_PASSWORD:-}
+      CUELIGHT_TRUST_PROXY: ${CUELIGHT_TRUST_PROXY:-}
+      CUELIGHT_ENABLE_CSP: ${CUELIGHT_ENABLE_CSP:-}
 
-      # Passwort für die Seite. Nötig, sobald CueLight aus dem Internet
-      # erreichbar ist. Leer lassen, wenn schon eine eigene
-      # Zugriffskontrolle davor hängt (z. B. Cloudflare Access).
-      CUELIGHT_PASSWORD: ""
-
-      # Optionale zweite Stufe, nur für die Zoom-Freigabe
-      # (/oauth/authorize und /oauth/reset). Ohne sie darf jeder, der
-      # CueLight bedienen kann, auch bestimmen, in wessen Namen die Instanz
-      # Meetings beitritt. Sinnvoll, sobald das Bedienpasswort mehr als eine
-      # Person kennt. Leer lassen = Verhalten wie bisher.
-      CUELIGHT_ADMIN_PASSWORD: ""
-
-      # Nur nötig, wenn CueLight ausnahmsweise OHNE Reverse-Proxy direkt
-      # erreichbar ist: dann auf "0" setzen. Sonst könnte jemand das
-      # Mengenlimit mit einem gefälschten X-Forwarded-For umgehen. Mit
-      # cloudflared oder nginx davor (Standardfall) bleibt der Wert leer.
-      # CUELIGHT_TRUST_PROXY: "0"
     volumes:
-      # Hier merkt sich CueLight die einmalige Zoom-Freigabe.
+      # Hier merkt sich CueLight die einmalige Zoom-Freigabe. Das
+      # Entrypoint-Skript korrigiert die Rechte beim Start selbst, ein
+      # "chown" von Hand ist nicht noetig.
       - ./data:/app/data
+
     ports:
-      # Nur lokal gebunden: Davor gehört zwingend etwas, das HTTPS
-      # bereitstellt - ein Cloudflare Tunnel oder ein Reverse-Proxy. Über
-      # eine unverschlüsselte Adresse verweigert Zoom den Beitritt, ein für
-      # alle offener Port hätte also gar keinen Nutzen (siehe README).
+      # Nur lokal gebunden: Davor gehoert zwingend etwas, das HTTPS
+      # bereitstellt - ein Cloudflare Tunnel oder ein Reverse-Proxy. Ueber
+      # eine unverschluesselte Adresse verweigert Zoom den Beitritt, ein
+      # fuer alle offener Port haette also gar keinen Nutzen (siehe README).
       - "127.0.0.1:4000:4000"

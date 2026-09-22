@@ -85,15 +85,45 @@ Die App muss nicht veröffentlicht werden.
 ```bash
 mkdir cuelight && cd cuelight
 curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/docker-compose.yml
-nano docker-compose.yml   # Client ID und Client Secret eintragen
+curl -O https://raw.githubusercontent.com/derbredi/cuelight/main/.env.example
+cp .env.example .env
+nano .env                 # Client ID und Client Secret eintragen
 docker compose up -d
 ```
 
-Mit **Portainer** geht es genauso: *Stacks → Add stack*, den Inhalt der
-`docker-compose.yml` einfügen, die beiden Werte eintragen, *Deploy*.
+Die Zugangsdaten stehen bewusst in der `.env` und **nicht** in der
+`docker-compose.yml`. So lässt sich die Stack-Datei jederzeit durch eine
+neuere ersetzen, ohne dass die eigenen Werte verloren gehen.
 
-Mehr als diese zwei Werte gibt es nicht einzustellen. Ob alles läuft,
-zeigt `docker compose logs -f`.
+Fehlt eine der beiden Pflichtangaben, bricht `docker compose up` sofort
+mit einem Hinweis ab – statt einen Container zu starten, der erst beim
+Beitritt scheitert.
+
+Mit **Portainer**: *Stacks → Add stack*, den Inhalt der
+`docker-compose.yml` einfügen, unten unter *Environment variables*
+dieselben Namen wie in der `.env.example` eintragen, *Deploy*. Am Text
+der Stack-Datei ist auch dort nichts zu ändern.
+
+### Läuft alles?
+
+```bash
+docker compose logs cuelight | head -20
+```
+
+Ganz oben steht eine **Selbstprüfung**. Sie sagt in ganzen Sätzen, was
+noch fehlt und was das bedeutet:
+
+```
+--- CueLight: Selbstpruefung ---
+[ok     ] Zoom-Zugangsdaten: ZOOM_CLIENT_ID und ZOOM_CLIENT_SECRET sind gesetzt.
+[ok     ] Passwortschutz: Beim ersten Aufruf fragt CueLight einmal nach dem Passwort.
+[Hinweis] Zoom-Freigabe: Noch keine Freigabe erteilt. Einmalig /oauth/authorize …
+--- Nichts Dringendes offen. ---
+```
+
+Was mit `[FEHLT]` markiert ist, muss erledigt werden – sonst läuft
+CueLight nicht. `[Hinweis]` ist eine Entscheidung, die du treffen
+solltest, aber kein Fehler.
 
 ### 3. Loslegen
 
