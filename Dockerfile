@@ -22,8 +22,20 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# Restlichen Code kopieren
+# Restlichen Code kopieren.
+#
+# JEDE NEUE DATEI MUSS HIER GENANNT WERDEN. Das Image kopiert bewusst
+# nicht das ganze Verzeichnis, sondern einzelne Stuecke - dadurch landen
+# Tests, Werkzeuge und Entwuerfe nicht mit auf dem Geraet. Der Preis ist
+# diese Zeile: Wer lib/ vergisst, baut ein Image, das beim Start mit
+# "Cannot find module" abbricht.
+#
+# Genau das ist beim ersten Anlauf zu v1.3.8 passiert. Aufgefallen ist es
+# im Rauchtest, also VOR dem Veroeffentlichen - das Image ging nie
+# hinaus. Ohne diesen Schritt haette der Container auf dem Geraet nach dem
+# naechsten Ziehen nicht mehr starten koennen.
 COPY server.js ./
+COPY lib ./lib
 COPY public ./public
 
 RUN mkdir -p /app/data
