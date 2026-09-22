@@ -14,3 +14,4 @@ zoom-oauth-tokens.json
 # ".env.*" auch sie ein, und der einzige Ort, an dem steht, WAS
 # einzutragen ist, waere nie mitgeliefert worden.
 !.env.example
+darstellung/

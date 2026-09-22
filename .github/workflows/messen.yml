@@ -1,0 +1,101 @@
+# Nimmt die Oberflaeche in jedem Zustand und in jeder Fenstergroesse auf
+# und misst sie dabei aus. Wird NUR von Hand ausgeloest und veroeffentlicht
+# nichts - kein Image, kein Tag, keine Auslieferung.
+#
+# Ausloesen: Actions -> "Darstellung messen" -> "Run workflow".
+# Ergebnis: zwei Artefakte am Lauf - "messwerte" mit dem Bericht und
+# "bilder" mit den Aufnahmen.
+#
+# WARUM ALS LAUF UND NICHT AUF DEM RECHNER: Playwright ist hier in einer
+# Minute eingerichtet, und das Ergebnis haengt nachvollziehbar am Lauf
+# statt in einem Ordner auf einem Rechner.
+#
+# WARUM PLAYWRIGHT NICHT IN package.json STEHT: Es wird nur in diesem Lauf
+# gebraucht. Ein Werkzeug, das die Anwendung nie benutzt, gehoert nicht in
+# ihre Abhaengigkeiten - es wird hier fuer die Dauer des Laufs installiert
+# und ist danach weg.
+
+name: Darstellung messen
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  messen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Abhaengigkeiten
+        run: |
+          npm ci --omit=dev
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      # Der Server muss den naechsten Schritt ueberleben. Deshalb nohup und
+      # abgetrennte Ausgabe: Ohne das nimmt die Shell ihn beim Verlassen
+      # des Schritts unter Umstaenden mit, und der Fehler sieht dann aus
+      # wie ein Playwright-Problem.
+      #
+      # OHNE PASSWORT: Der Messlauf soll die Oberflaeche sehen, nicht die
+      # Anmeldeseite. Die Zugangsdaten sind erfunden - es wird kein Meeting
+      # beigetreten, der Zustand wird in der Seite direkt gesetzt.
+      - name: CueLight starten
+        run: |
+          ZOOM_CLIENT_ID=test ZOOM_CLIENT_SECRET=test \
+          nohup node server.js > /tmp/cuelight.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:4000/healthz > /dev/null; then
+              echo "Dienst antwortet nach ${i}s."
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "FEHLER: Dienst antwortet nach 30s nicht."
+          cat /tmp/cuelight.log || true
+          exit 1
+
+      - name: Aufnehmen und messen
+        run: node tools/messen.js
+
+      # Die Zusammenfassung landet zusaetzlich direkt am Lauf, damit man
+      # die Auffaelligkeiten sieht, ohne erst ein Zip herunterzuladen.
+      - name: Auffaelligkeiten in die Zusammenfassung
+        if: always()
+        run: |
+          if [ -f darstellung/messwerte.md ]; then
+            cat darstellung/messwerte.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "Keine Messwerte entstanden." >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/cuelight.log || true
+          fi
+
+      # ZWEI Artefakte, und die Reihenfolge ist Absicht: Der Bericht ist
+      # wenige Kilobyte gross und das, worauf es ankommt; die Bilder sind
+      # nur fuer Stichproben. Ein gescheiterter Bilder-Upload soll den Lauf
+      # nicht rot machen.
+      - name: Bericht sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: messwerte
+          path: |
+            darstellung/messwerte.md
+            darstellung/messwerte.json
+          retention-days: 30
+
+      - name: Bilder sichern
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: bilder
+          path: darstellung/*.png
+          retention-days: 3
