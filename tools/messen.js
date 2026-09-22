@@ -87,7 +87,7 @@ const ZUSTAENDE = [
  * Wird in der Seite ausgefuehrt. Setzt den gewuenschten Zustand direkt,
  * ohne echtes Meeting - genauso wie tools/screenshots.js es schon tut.
  */
-function stelleEin({ art, kacheln, zeit, namen, langerName, liste }) {
+function stelleEin({ art, zeit, namen, namenListe, meldungen }) {
   // Aufklapper aufklappen. Was zugeklappt ist, sieht niemand - und was
   // niemand sieht, kann auch nicht falsch stehen. Gemessen wird deshalb
   // der unguenstigere Fall: alles offen.
@@ -132,13 +132,13 @@ function stelleEin({ art, kacheln, zeit, namen, langerName, liste }) {
   meetingTopic = 'Beispiel-Versammlung';
 
   teilnehmer = namen
-    ? liste.map((name) => ({ name, muted: true }))
+    ? namenListe.map((name) => ({ name, muted: true }))
     : [];
 
   raisedHands.clear();
   listEl.innerHTML = '';
   rowElements.clear();
-  for (const [id, info] of liste.meldungen || []) raisedHands.set(id, info);
+  for (const [id, info] of meldungen || []) raisedHands.set(id, info);
 
   if (zeit) {
     // Die Redezeit laeuft ueber dieselben Knoepfe wie im Betrieb - so
@@ -342,12 +342,28 @@ function messe(wahl) {
           zeit: zustand.zeit || 0,
           namen: Boolean(zustand.namen),
           langerName: Boolean(zustand.langerName),
-          liste: Object.assign(NAMEN.slice(), { meldungen }),
+          namenListe: NAMEN.slice(),
+          meldungen,
         });
 
         // Lange genug, dass jeder Uebergang durch ist - sonst nimmt das
         // Bild einen Zwischenstand auf und die Messung misst ihn mit.
         await p.waitForTimeout(900);
+
+        // GEGENPROBE: Steht wirklich, was stehen sollte?
+        //
+        // WARUM: Genau hier ist der Lauf lange blind gewesen. Die
+        // Meldungen wurden als Zusatz-Eigenschaft an einem Array
+        // uebergeben - beim Weg in die Seite faellt so etwas weg, und
+        // "board-3-kacheln" nahm seelenruhig den leeren Ruhezustand auf.
+        // Fuenf der elf Zustaende haben nie das gemessen, was sie messen
+        // sollten, und der Bericht meldete trotzdem "nichts
+        // aufgefallen". Ein Werkzeug, das den falschen Zustand misst,
+        // ist schlimmer als keines: Es spricht frei.
+        const gezaehlt = await p.evaluate(() => document.querySelectorAll('#board .cl-row').length);
+        if (gezaehlt !== anzahl) {
+          klagen.push(`Zustand nicht hergestellt: ${anzahl} Kacheln erwartet, ${gezaehlt} gezeichnet`);
+        }
 
         await p.locator(zustand.ziel).screenshot({ path: path.join(ZIEL, datei) });
         const werte = await p.evaluate(messe, zustand.ziel);
