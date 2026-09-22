@@ -934,6 +934,12 @@
   .cl-row {
     display: flex;
     align-items: center;
+    /* Antippbar: Ein Tipp schaltet die Person frei. Auf dem Telefon im
+       Querformat kam die Kachel bei sieben Meldungen auf 43px Hoehe -
+       einen Pixel unter dem Mindestmass, nachgemessen im Darstellungslauf.
+       Auf allen anderen Groessen ist sie ein Vielfaches davon; diese
+       Zeile greift nur dort, wo es eng wird. */
+    min-height: 44px;
     gap: 3vw;
     padding: 2.2vh 3vw;
     background: var(--flag);
