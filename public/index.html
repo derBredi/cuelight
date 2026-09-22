@@ -2800,6 +2800,30 @@
 
     document.getElementById('joinBtn').addEventListener('click', startBoard);
 
+    // Die Eingabetaste startet ebenfalls. Bis hierher tat sie nichts: Die
+    // drei Felder stehen lose im Kasten und nicht in einem <form>, und
+    // ohne Formular gibt es kein Abschicken. Wer die Nummer eintippt und
+    // Eingabe drueckt - am Pult die naheliegendste Bewegung - stand vor
+    // einer Seite, die sich nicht ruehrt.
+    //
+    // ABSICHTLICH KEIN <form> DRUMHERUM, obwohl das die uebliche Loesung
+    // waere: Ein zusaetzliches Element mitten im Kasten fasst dessen
+    // Anordnung an. Hier wird nichts verschoben, nur eine Taste
+    // beantwortet. enterkeyhint macht auf dem Tablet aus der Eingabetaste
+    // sichtbar eine Start-Taste.
+    //
+    // isComposing: Waehrend eine Eingabehilfe noch am Wort arbeitet,
+    // schliesst Eingabe das Wort ab und startet nicht.
+    for (const feldId of ['meetingNumber', 'password', 'displayName']) {
+      const feld = document.getElementById(feldId);
+      feld.setAttribute('enterkeyhint', 'go');
+      feld.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.isComposing) return;
+        e.preventDefault();
+        startBoard();
+      });
+    }
+
     // Lesezeichen-Link: baut sich live aus Meeting-Nummer + Passwort auf und
     // startet beim Öffnen automatisch (siehe URL-Parameter-Handling unten).
     function updateBookmarkLink() {

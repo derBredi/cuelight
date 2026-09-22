@@ -1,7 +1,7 @@
 # Nimmt die Oberflaeche in jedem Zustand und in jeder Fenstergroesse auf
-# und misst sie dabei aus. Wird von Hand ausgeloest und ausserdem, wenn
-# sich das Messwerkzeug selbst aendert. Veroeffentlicht nichts - kein
-# Image, kein Tag, keine Auslieferung.
+# und misst sie dabei aus. Wird von Hand ausgeloest und ausserdem bei
+# jeder Aenderung an der Oberflaeche oder am Messwerkzeug. Veroeffentlicht
+# nichts - kein Image, kein Tag, keine Auslieferung.
 #
 # Ausloesen: Actions -> "Darstellung messen" -> "Run workflow".
 # Ergebnis: zwei Artefakte am Lauf - "messwerte" mit dem Bericht und
@@ -21,15 +21,18 @@ name: Darstellung messen
 on:
   workflow_dispatch:
 
-  # Und ausserdem, wenn sich das Messwerkzeug selbst aendert. Der Grund
-  # ist einfach: Ob eine Messung stimmt, sieht man nicht im Quelltext,
-  # sondern nur am Ergebnis. Der erste Lauf meldete 20 unerreichbare
-  # Elemente, die in Wahrheit nur in einem zugeklappten Aufklapper lagen
-  # - ein Fehler des Werkzeugs, den erst der naechste Lauf ausgeraeumt
-  # hat. Auf die Anwendung selbst laeuft das hier weiterhin nicht
-  # automatisch; das waere bei jedem Push zu viel.
+  # Und ausserdem bei jeder Aenderung an der Oberflaeche oder am
+  # Messwerkzeug. Beides aus demselben Grund: Ob die Darstellung stimmt,
+  # sieht man nicht im Quelltext, sondern nur am Ergebnis. Der erste Lauf
+  # meldete 20 unerreichbare Elemente, die in Wahrheit nur in einem
+  # zugeklappten Aufklapper lagen - ein Fehler des Werkzeugs, den erst
+  # der naechste Lauf ausgeraeumt hat.
+  #
+  # public/ ist genau das, was hier gemessen wird; eine Aenderung daran
+  # ohne Messung ist eine Aenderung ins Blaue.
   push:
     paths:
+      - 'public/**'
       - 'tools/messen.js'
       - '.github/workflows/messen.yml'
 
