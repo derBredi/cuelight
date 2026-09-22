@@ -670,11 +670,25 @@
 
   #timerButtons {
     display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(12px, 1.6vh, 20px);
+  }
+
+  .cl-reihe {
+    display: flex;
     flex-wrap: wrap;
     /* Der Abstand ist hier Schutz, nicht Gestaltung: Er ist die Zone, in
        der ein Fehlgriff NICHTS ausloest statt das Falsche. */
     gap: clamp(12px, 1.6vh, 20px);
     justify-content: center;
+  }
+
+  /* Platz behalten, Bedeutung abgeben. Der Unterschied zu display: none
+     ist der ganze Punkt der zwei Reihen: Was hier unsichtbar wird, zieht
+     nichts hinter sich her. */
+  .cl-unsichtbar {
+    visibility: hidden;
   }
 
   /* Die einzige gefuellte Flaeche der ganzen Anzeige - und damit die
@@ -712,10 +726,19 @@
     width: clamp(64px, min(7vw, 11vh), 88px);
     height: clamp(64px, min(7vw, 11vh), 88px);
     padding: 0;
-    border: 1px solid var(--line);
+    /* SICHTBAR, NICHT NUR VORHANDEN: Der Rand stand auf var(--line) auf
+       var(--bg) - nachgerechnet 1,5:1. Aus dem Augenwinkel sah man fuenf
+       schwebende Zahlen und keine Knoepfe. Jetzt hat der Kreis einen
+       Koerper (Flaeche), eine Kante (2px in var(--muted), 5,3:1) und
+       helle Ziffern (14,9:1).
+
+       KEINE FARBE: Auf dieser Anzeige bedeutet Farbe etwas - Orange ist
+       eine Wortmeldung, Gruen ein offenes Mikrofon. Ein gruener
+       Startknopf redete in diese Sprache hinein. */
+    border: 2px solid var(--muted);
     border-radius: 50%;
-    background: none;
-    color: var(--muted);
+    background: var(--panel);
+    color: var(--text);
     font-family: var(--font);
     font-size: clamp(20px, min(2.4vw, 3vh), 28px);
     font-variant-numeric: tabular-nums;
@@ -1241,20 +1264,36 @@
         <div id="timerBar">
           <div id="timerLabel">REDEZEIT IN MINUTEN</div>
           <div id="timerButtons">
-            <!-- Feinjustierung links und rechts der Hauptflaeche, nicht
-                 neben der grossen Ziffer: Was man antippt, gehoert in die
-                 Reihe, in der ohnehin alles Antippbare steht. Die 4 entfaellt -
-                 sie ist von der 3 wie von der 5 aus einen Tipp entfernt. -->
-            <button id="timerMinusBtn" class="cl-step" type="button"
-                    style="display:none;" aria-label="Eine Minute weniger">−</button>
-            <button id="timerMainBtn" type="button">Start</button>
-            <button id="timerPlusBtn" class="cl-step" type="button"
-                    style="display:none;" aria-label="Eine Minute mehr">+</button>
-            <button class="cl-min" type="button" data-min="3">3</button>
-            <button class="cl-min" type="button" data-min="5">5</button>
-            <button class="cl-min" type="button" data-min="10">10</button>
-            <button class="cl-min" type="button" data-min="15">15</button>
-            <button class="cl-min" type="button" data-min="30">30</button>
+            <!-- ZWEI REIHEN, UND KEINE BEWEGT SICH. Oben die Laengen,
+                 unten die Hauptflaeche mit der Feinjustierung links und
+                 rechts. Beim Start verschwindet nichts, es wird nur
+                 unsichtbar: Die Plaetze bleiben stehen, jeder Knopf ist
+                 immer dort, wo er beim letzten Mal war. Wer gleich vorne
+                 steht, kann die Bewegung lernen, statt jedes Mal neu zu
+                 suchen.
+
+                 Dass das in ZWEI Reihen geht, ist der Grund fuer den
+                 Umbau: In einer einzigen Reihe schoben die fuenf
+                 unsichtbaren Laengen die Gruppe "- Stopp +" um 130px zur
+                 Seite - nachgemessen und deshalb damals verworfen.
+                 Untereinander stoeren sie sich nicht.
+
+                 Die 4 entfaellt - sie ist von der 3 wie von der 5 aus
+                 einen Tipp entfernt. -->
+            <div class="cl-reihe" id="timerLaengen">
+              <button class="cl-min" type="button" data-min="3">3</button>
+              <button class="cl-min" type="button" data-min="5">5</button>
+              <button class="cl-min" type="button" data-min="10">10</button>
+              <button class="cl-min" type="button" data-min="15">15</button>
+              <button class="cl-min" type="button" data-min="30">30</button>
+            </div>
+            <div class="cl-reihe">
+              <button id="timerMinusBtn" class="cl-step cl-unsichtbar" type="button"
+                      aria-label="Eine Minute weniger">−</button>
+              <button id="timerMainBtn" type="button">Start</button>
+              <button id="timerPlusBtn" class="cl-step cl-unsichtbar" type="button"
+                      aria-label="Eine Minute mehr">+</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1328,6 +1367,7 @@
     const timerMainBtn = document.getElementById('timerMainBtn');
     const timerLabelEl = document.getElementById('timerLabel');
     const timerButtonsEl = document.getElementById('timerButtons');
+    const timerLaengenEl = document.getElementById('timerLaengen');
     const schrittMinus = document.getElementById('timerMinusBtn');
     const schrittPlus = document.getElementById('timerPlusBtn');
     const boardTimerEl = document.getElementById('boardTimer');
@@ -1733,20 +1773,26 @@
       // faehrt darunter aus (siehe CSS).
       idleMainEl.classList.toggle('cl-running', laeuft);
       timerMainBtn.textContent = laeuft ? 'Stopp' : 'Start';
-      // Waehrend die Zeit laeuft stehen dort nur noch die Zeit und "Stopp".
-      // Die Laengen braucht in dem Moment niemand: Die Anzeige raeumt sich
-      // nach dem Ende selbst weg, die Knoepfe sind also wieder da, bevor
-      // der Naechste auf die Buehne kommt.
-      timerLabelEl.style.display = laeuft ? 'none' : '';
-      for (const el of timerButtonsEl.querySelectorAll('.cl-min')) {
-        el.style.display = laeuft ? 'none' : '';
-      }
+      // Waehrend die Zeit laeuft stehen dort nur noch die Zeit und
+      // "Stopp". Die Laengen braucht in dem Moment niemand: Die Anzeige
+      // raeumt sich nach dem Ende selbst weg, die Knoepfe sind also
+      // wieder da, bevor der Naechste auf die Buehne kommt.
+      //
+      // UNSICHTBAR STATT WEG, und das ist der Unterschied, auf den es
+      // ankommt: Was verschwindet, zieht alles andere hinter sich her.
+      // Die Plaetze bleiben jetzt stehen, damit jeder Knopf dort ist, wo
+      // er beim letzten Mal war.
+      timerLabelEl.classList.toggle('cl-unsichtbar', laeuft);
+      timerLaengenEl.classList.toggle('cl-unsichtbar', laeuft);
 
       // Nur bei gewaehlter Laenge: bei der freien Stoppuhr gibt es keine
       // Grenze, die sich verschieben liesse.
       const zeigeSchritte = laeuft && zeitLimit > 0;
-      schrittMinus.style.display = zeigeSchritte ? '' : 'none';
-      schrittPlus.style.display = zeigeSchritte ? '' : 'none';
+      // Auch hier unsichtbar statt weg: Stuenden die beiden nicht da,
+      // rueckte "Stopp" in die Mitte der leeren Reihe - genau die
+      // Bewegung, die der Umbau loswerden sollte.
+      schrittMinus.classList.toggle('cl-unsichtbar', !zeigeSchritte);
+      schrittPlus.classList.toggle('cl-unsichtbar', !zeigeSchritte);
       // "-" nur, wenn danach noch Restzeit UEBRIG BLEIBT. Bei 0:45 waere das
       // Ergebnis -0:15, und 45 s spaeter raeumt sich die Anzeige mitten im
       // Vortrag selbst weg. Ueber einer Minute Rest ist das ausgeschlossen.
