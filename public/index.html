@@ -571,25 +571,27 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 8px;
     text-align: center;
   }
 
-  /* Nimmt allen Platz, der uebrig bleibt, und zentriert darin, was
-     gerade wichtig ist - Uhrzeit oder Countdown.
+  /* Uhrzeit und Countdown als eine Gruppe.
 
-     DAS IST DER ANKER FUER DIE KNOEPFE: Weil dieser Bereich die freie
-     Hoehe aufbraucht, haengt die Knopfreihe darunter an der Unterkante.
-     Sie ruehrt sich nicht mehr, egal wie gross die Uhr gerade ist oder
-     ob der Countdown darunter ausfaehrt. Vorher hing alles zusammen in
-     der Mitte: Jede Aenderung oben schob die Knoepfe nach unten. */
+     EIN VERSUCH, DER ZURUECKGENOMMEN WURDE: Dieser Bereich hat kurz die
+     ganze freie Hoehe aufgebraucht, damit die Knopfreihe an der
+     Unterkante haengt und sich nie bewegt. Auf der Aufnahme war das
+     schlechter: "Stopp" klebte am Fusstext, und zwischen Countdown und
+     Knopf stand noch mehr Luft als vorher - die Bewegung war weg, dafuer
+     hing die Anzeige auseinander.
+
+     Alles bleibt deshalb zusammen in der Mitte. Dass "Stopp" dabei etwas
+     tiefer sitzt als "Start", ist der Preis; er ist kleiner als ein
+     auseinandergezogenes Bild. */
   #zeitbereich {
-    flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 8px;
   }
 
@@ -1297,11 +1299,9 @@
              Stoppuhr, sobald jemand auf der Buehne steht. Was gerade
              wichtiger ist, ist auch groesser.
 
-             EIGENER BEREICH, und der nimmt sich allen Platz, der uebrig
-             bleibt. Dadurch haengt die Knopfreihe darunter an der
-             Unterkante und nicht mehr an der Hoehe dessen, was hier
-             gerade steht. Was hier waechst oder schrumpft, verschiebt
-             keinen Knopf mehr. -->
+             Beides steht in einer eigenen Gruppe, damit es als eines
+             gelesen wird - die Begruendung samt einem zurueckgenommenen
+             Versuch steht im CSS bei #zeitbereich. -->
         <div id="zeitbereich">
           <div id="clock">--:--</div>
           <div id="stopwatch">
