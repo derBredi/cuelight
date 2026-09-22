@@ -571,9 +571,26 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     gap: 8px;
     text-align: center;
+  }
+
+  /* Nimmt allen Platz, der uebrig bleibt, und zentriert darin, was
+     gerade wichtig ist - Uhrzeit oder Countdown.
+
+     DAS IST DER ANKER FUER DIE KNOEPFE: Weil dieser Bereich die freie
+     Hoehe aufbraucht, haengt die Knopfreihe darunter an der Unterkante.
+     Sie ruehrt sich nicht mehr, egal wie gross die Uhr gerade ist oder
+     ob der Countdown darunter ausfaehrt. Vorher hing alles zusammen in
+     der Mitte: Jede Aenderung oben schob die Knoepfe nach unten. */
+  #zeitbereich {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
   }
 
   /* Bewusst OHNE Sekunden: Auf dieser Anzeige bedeutet Bewegung "jemand
@@ -690,15 +707,22 @@
      unten heraus, und zwar ohne Scrollbereich: 22 unerreichbare
      Elemente, alle auf dieser einen Groesse.
 
-     Dort stehen die beiden Reihen deshalb nebeneinander. Die Plaetze
-     bleiben auch so stehen, es bewegt sich weiterhin nichts - nur sitzt
-     "Start" dann nicht mehr mittig unter der Uhr. Das Telefon ist das
-     Ausweichgeraet und nicht das Pultgeraet, dieselbe Abwaegung wie bei
-     den uebrigen gedraengten Massen im Querformat. */
+     Dort stehen die beiden Reihen deshalb nebeneinander, als eine
+     zentrierte Gruppe. Der Preis ist der, den die Reihe hier immer
+     schon hatte: Faellt die Laengengruppe beim Start weg, rueckt
+     "Stopp" in die Mitte nach. Das Telefon ist das Ausweichgeraet und
+     nicht das Pultgeraet, dieselbe Abwaegung wie bei den uebrigen
+     gedraengten Massen im Querformat. */
   @media (max-height: 560px) {
     #timerButtons {
-      flex-direction: row;
+      /* row-reverse, nicht row: Die Laengen stehen im Quelltext oben,
+         damit ihr Wegfall die Hauptflaeche nicht verschiebt. Nebeneinander
+         gelesen ergaebe das "3 5 10 15 30" links und "Start" irgendwo
+         rechts - das sieht nach Versehen aus. Umgedreht steht "Start"
+         wieder links und die Laengen dahinter, so wie man es hier kennt. */
+      flex-direction: row-reverse;
       flex-wrap: wrap;
+      justify-content: center;
     }
   }
 
@@ -1271,10 +1295,18 @@
       <div id="idleMain">
         <!-- Grosse Anzeige: die Uhrzeit, solange nichts laeuft - die
              Stoppuhr, sobald jemand auf der Buehne steht. Was gerade
-             wichtiger ist, ist auch groesser. -->
-        <div id="clock">--:--</div>
-        <div id="stopwatch">
-          <span id="swMin">0</span><span id="swSec">:00</span>
+             wichtiger ist, ist auch groesser.
+
+             EIGENER BEREICH, und der nimmt sich allen Platz, der uebrig
+             bleibt. Dadurch haengt die Knopfreihe darunter an der
+             Unterkante und nicht mehr an der Hoehe dessen, was hier
+             gerade steht. Was hier waechst oder schrumpft, verschiebt
+             keinen Knopf mehr. -->
+        <div id="zeitbereich">
+          <div id="clock">--:--</div>
+          <div id="stopwatch">
+            <span id="swMin">0</span><span id="swSec">:00</span>
+          </div>
         </div>
 
         <!-- Redezeit. Eine gefuellte Flaeche (Start bzw. Stopp) plus
@@ -1796,12 +1828,14 @@
       // raeumt sich nach dem Ende selbst weg, die Knoepfe sind also
       // wieder da, bevor der Naechste auf die Buehne kommt.
       //
-      // UNSICHTBAR STATT WEG, und das ist der Unterschied, auf den es
-      // ankommt: Was verschwindet, zieht alles andere hinter sich her.
-      // Die Plaetze bleiben jetzt stehen, damit jeder Knopf dort ist, wo
-      // er beim letzten Mal war.
-      timerLabelEl.classList.toggle('cl-unsichtbar', laeuft);
-      timerLaengenEl.classList.toggle('cl-unsichtbar', laeuft);
+      // Diese beiden duerfen ganz verschwinden - sie liegen UEBER der
+      // Hauptflaeche, und die haengt an der Unterkante. Ihr Wegfall
+      // verschiebt also keinen Knopf, er gibt nur dem Countdown mehr
+      // Raum. Reservierter Platz waere hier reine Luft zwischen
+      // Countdown und "Stopp" - gut hundert Pixel, die beim Ansehen
+      // sofort als Loch auffielen.
+      timerLabelEl.style.display = laeuft ? 'none' : '';
+      timerLaengenEl.style.display = laeuft ? 'none' : '';
 
       // Nur bei gewaehlter Laenge: bei der freien Stoppuhr gibt es keine
       // Grenze, die sich verschieben liesse.
