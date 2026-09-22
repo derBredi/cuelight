@@ -684,6 +684,24 @@
     justify-content: center;
   }
 
+  /* Auf einem niedrigen Bildschirm - in der Praxis das Telefon im
+     Querformat mit 390px Hoehe - kostet die zweite Reihe rund 76px, die
+     dort schlicht nicht da sind. Gemessen rutschte die Teilnehmerliste
+     unten heraus, und zwar ohne Scrollbereich: 22 unerreichbare
+     Elemente, alle auf dieser einen Groesse.
+
+     Dort stehen die beiden Reihen deshalb nebeneinander. Die Plaetze
+     bleiben auch so stehen, es bewegt sich weiterhin nichts - nur sitzt
+     "Start" dann nicht mehr mittig unter der Uhr. Das Telefon ist das
+     Ausweichgeraet und nicht das Pultgeraet, dieselbe Abwaegung wie bei
+     den uebrigen gedraengten Massen im Querformat. */
+  @media (max-height: 560px) {
+    #timerButtons {
+      flex-direction: row;
+      flex-wrap: wrap;
+    }
+  }
+
   /* Platz behalten, Bedeutung abgeben. Der Unterschied zu display: none
      ist der ganze Punkt der zwei Reihen: Was hier unsichtbar wird, zieht
      nichts hinter sich her. */
