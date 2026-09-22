@@ -1,0 +1,48 @@
+# Prueft bei JEDEM Push. Baut und veroeffentlicht NICHTS.
+#
+# WARUM GETRENNT VON publish.yml: Der dortige Rauchtest ist gut, laeuft
+# aber nur beim Setzen eines Tags - also genau dann, wenn die Entscheidung
+# zum Ausliefern schon gefallen ist. Ein Fehler faellt dort zum
+# spaetestmoeglichen Zeitpunkt auf.
+#
+# Dieser Lauf hat keine Rechte ausser Lesen und beruehrt die Registry
+# nicht. Er kann also nichts ausliefern, auch nicht aus Versehen.
+
+name: Pruefen
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # KEIN npm install: Die Tests pruefen eigene Rechnungen und brauchen
+      # kein einziges fremdes Paket. Das haelt den Lauf bei wenigen
+      # Sekunden und macht ihn unabhaengig davon, ob gerade eine
+      # Abhaengigkeit im Netz erreichbar ist.
+      - name: Tests
+        run: npm test
+
+      # Syntaxpruefung fuer alles, was die Tests nicht anfassen. server.js
+      # laedt Express und laesst sich hier nicht ausfuehren - aber ob der
+      # Text als JavaScript durchgeht, sagt "node --check" auch ohne
+      # Abhaengigkeiten.
+      - name: Syntax
+        run: |
+          for f in server.js lib/*.js tools/*.js; do
+            [ -e "$f" ] || continue
+            node --check "$f" && echo "ok: $f"
+          done

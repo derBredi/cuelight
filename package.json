@@ -4,7 +4,8 @@
   "description": "Grosse, blinkende Anzeige fuer Zoom-Teilnehmer, die sich melden (Hand heben) - fuer Buehnen-/Vortragssituationen.",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "node --test test/"
   },
   "dependencies": {
     "cors": "^2.8.5",

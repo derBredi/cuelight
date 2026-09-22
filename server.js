@@ -19,6 +19,10 @@ const express = require('express');
 const { version: PACKAGE_VERSION } = require('./package.json');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+// Eine Zeile Rechnung in einer eigenen Datei - weil sie einen Fehler
+// hatte, den man ihr nicht ansieht, und weil sie sich so pruefen laesst,
+// ohne den Server zu starten. Die Begruendung steht in lib/ablauf.js.
+const { ablaufZeitpunkt } = require('./lib/ablauf');
 
 const app = express();
 app.disable('x-powered-by');
@@ -513,7 +517,7 @@ async function refreshAccessToken(tokens) {
     ...tokens,
     access_token: fresh.access_token,
     refresh_token: fresh.refresh_token || tokens.refresh_token,
-    expires_at: Date.now() + fresh.expires_in * 1000,
+    expires_at: ablaufZeitpunkt(fresh.expires_in),
   };
   saveTokens(updated);
   return updated.access_token;
@@ -654,7 +658,7 @@ app.get('/oauth/callback', async (req, res) => {
     saveTokens({
       access_token: data.access_token,
       refresh_token: data.refresh_token,
-      expires_at: Date.now() + data.expires_in * 1000,
+      expires_at: ablaufZeitpunkt(data.expires_in),
       account,
       authorized_at: new Date().toISOString(),
     });
