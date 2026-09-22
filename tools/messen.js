@@ -353,10 +353,67 @@ function messe(wahl) {
 
   fs.writeFileSync(path.join(ZIEL, 'messwerte.json'), JSON.stringify(messwerte, null, 2));
   fs.writeFileSync(path.join(ZIEL, 'messwerte.md'), bericht(messwerte));
+  anmerkungen(messwerte);
 
   console.log(`${messwerte.length} Aufnahmen, ${fehlgeschlagen} fehlgeschlagen.`);
   console.log(`Ergebnis in ${ZIEL}`);
 })();
+
+// --- Anmerkungen am Lauf -------------------------------------------------
+//
+// Der Bericht liegt im Artefakt, und ein Artefakt muss man herunterladen.
+// Was auffaellt, soll aber schon am Lauf stehen. GitHub macht aus
+// "::warning::" eine Anmerkung, die ohne Zip und ohne Anmeldung zu sehen
+// ist - am Lauf selbst und ueber die Schnittstelle.
+//
+// BEWUSST GEDECKELT: GitHub zeigt je Schritt nur die ersten zehn
+// Anmerkungen. Lieber acht aussagekraeftige und eine Zeile "und N
+// weitere" als eine abgeschnittene Liste, der man das Abschneiden nicht
+// ansieht.
+function anmerkungen(werte) {
+  if (!process.env.GITHUB_ACTIONS) return;
+
+  const raus = [];
+  const melde = (art, titel, text) =>
+    raus.push(`::${art} title=${titel}::${String(text).replace(/\r?\n/g, '%0A')}`);
+
+  const sammle = (liste, titel) => {
+    for (const zeile of liste.slice(0, 8)) melde('warning', titel, zeile);
+    if (liste.length > 8) melde('warning', titel, `und ${liste.length - 8} weitere`);
+  };
+
+  const verloren = [];
+  const gekuerzt = [];
+  const platzhalter = [];
+  const klein = new Set();
+  for (const w of werte) {
+    for (const k of (w.klagen || [])) melde('error', 'JavaScript-Fehler', `${w.zustand} / ${w.groesse}: ${k}`);
+    for (const u of (w.ueberlauf || [])) {
+      if (!u.erreichbar) verloren.push(`${w.zustand} / ${w.groesse}: ${u.was} ragt hinaus und liegt in keinem Scrollbereich`);
+    }
+    for (const g of (w.gekuerzt || [])) {
+      gekuerzt.push(`${w.zustand} / ${w.groesse}: ${g.was} zeigt ${g.platz} von ${g.gebraucht} Pixeln - "${g.text}"`);
+    }
+    for (const p of (w.platzhalter || [])) {
+      platzhalter.push(`${w.zustand} / ${w.groesse}: ${p.was} schneidet "${p.text}" hart ab`);
+    }
+    for (const t of (w.tippziele || [])) {
+      if (t.zuKlein) klein.add(`${t.was} ("${t.text}") ist ${t.breite}x${t.hoehe} - ${w.groesse}`);
+    }
+  }
+
+  sammle(verloren, 'Unerreichbarer Inhalt');
+  sammle(gekuerzt, 'Abgeschnittener Text');
+  sammle(platzhalter, 'Abgeschnittener Platzhalter');
+  sammle([...klein], 'Tippziel unter 44 Pixel');
+
+  const anzahl = raus.length;
+  melde('notice', 'Darstellung', anzahl
+    ? `${werte.length} Aufnahmen, ${anzahl} Auffaelligkeiten`
+    : `${werte.length} Aufnahmen, nichts aufgefallen`);
+
+  for (const zeile of raus) console.log(zeile);
+}
 
 // --- Der Bericht ---------------------------------------------------------
 //
