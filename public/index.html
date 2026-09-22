@@ -566,6 +566,18 @@
     letter-spacing: 0.02em;
   }
 
+  /* Alles zusammen in der Mitte: Uhr, Countdown, Knoepfe.
+
+     EIN VERSUCH, DER ZURUECKGENOMMEN WURDE: Uhr und Countdown lagen
+     kurz in einem eigenen Bereich, der die freie Hoehe aufbrauchte -
+     damit haette die Knopfreihe an der Unterkante gehangen und sich nie
+     bewegt. Auf der Aufnahme war das schlechter: "Stopp" klebte am
+     Fusstext, und zwischen Countdown und Knopf stand noch MEHR Luft als
+     vorher. Die Bewegung war weg, dafuer hing die Anzeige auseinander.
+
+     Dass "Stopp" etwas tiefer sitzt als "Start", weil die Stoppuhr
+     darueber ausfaehrt, ist der Preis. Er ist kleiner als ein
+     auseinandergezogenes Bild. */
   #idleMain {
     flex: 1;
     display: flex;
@@ -574,25 +586,6 @@
     justify-content: center;
     gap: 8px;
     text-align: center;
-  }
-
-  /* Uhrzeit und Countdown als eine Gruppe.
-
-     EIN VERSUCH, DER ZURUECKGENOMMEN WURDE: Dieser Bereich hat kurz die
-     ganze freie Hoehe aufgebraucht, damit die Knopfreihe an der
-     Unterkante haengt und sich nie bewegt. Auf der Aufnahme war das
-     schlechter: "Stopp" klebte am Fusstext, und zwischen Countdown und
-     Knopf stand noch mehr Luft als vorher - die Bewegung war weg, dafuer
-     hing die Anzeige auseinander.
-
-     Alles bleibt deshalb zusammen in der Mitte. Dass "Stopp" dabei etwas
-     tiefer sitzt als "Start", ist der Preis; er ist kleiner als ein
-     auseinandergezogenes Bild. */
-  #zeitbereich {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
   }
 
   /* Bewusst OHNE Sekunden: Auf dieser Anzeige bedeutet Bewegung "jemand
@@ -1297,16 +1290,10 @@
       <div id="idleMain">
         <!-- Grosse Anzeige: die Uhrzeit, solange nichts laeuft - die
              Stoppuhr, sobald jemand auf der Buehne steht. Was gerade
-             wichtiger ist, ist auch groesser.
-
-             Beides steht in einer eigenen Gruppe, damit es als eines
-             gelesen wird - die Begruendung samt einem zurueckgenommenen
-             Versuch steht im CSS bei #zeitbereich. -->
-        <div id="zeitbereich">
-          <div id="clock">--:--</div>
-          <div id="stopwatch">
-            <span id="swMin">0</span><span id="swSec">:00</span>
-          </div>
+             wichtiger ist, ist auch groesser. -->
+        <div id="clock">--:--</div>
+        <div id="stopwatch">
+          <span id="swMin">0</span><span id="swSec">:00</span>
         </div>
 
         <!-- Redezeit. Eine gefuellte Flaeche (Start bzw. Stopp) plus
@@ -1828,13 +1815,13 @@
       // raeumt sich nach dem Ende selbst weg, die Knoepfe sind also
       // wieder da, bevor der Naechste auf die Buehne kommt.
       //
-      // Diese beiden duerfen ganz verschwinden - sie liegen UEBER der
-      // Hauptflaeche, und die haengt an der Unterkante. Ihr Wegfall
-      // verschiebt also keinen Knopf, er gibt nur dem Countdown mehr
-      // Raum. Reservierter Platz waere hier reine Luft zwischen
-      // Countdown und "Stopp" - gut hundert Pixel, die beim Ansehen
-      // sofort als Loch auffielen.
-      timerLabelEl.style.display = laeuft ? 'none' : '';
+      // Die Beschriftung behaelt ihren Platz (visibility), die Kreise
+      // nicht (display). Der Unterschied ist gemessen, nicht geraten:
+      // Eine verschwindende Beschriftung ist ein harter Sprung von rund
+      // 28px mitten in zwei weiche Uebergaenge - das liest sich als
+      // Ruckeln. Die Kreisreihe dagegen MUSS verschwinden, sonst bleibt
+      // gut hundert Pixel Luft zwischen Countdown und "Stopp" stehen.
+      timerLabelEl.classList.toggle('cl-unsichtbar', laeuft);
       timerLaengenEl.style.display = laeuft ? 'none' : '';
 
       // Nur bei gewaehlter Laenge: bei der freien Stoppuhr gibt es keine
