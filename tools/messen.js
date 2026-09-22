@@ -198,18 +198,36 @@ function messe(wahl) {
 
   // 2. Antippbare Flaechen. Fliesstext-Verweise zaehlen nicht mit -
   //    WCAG 2.5.8 nimmt Ziele "in a sentence or block of text" aus.
+  //
+  //    ZWEI MASSSTAEBE, und der zweite ist der wichtigere:
+  //
+  //    44 Pixel ist das Mindestmass der Norm. Es gilt fuer jemanden, der
+  //    ruhig sitzt und auf das Ziel schaut. Die Zeitknoepfe am Pult
+  //    bedient jemand, der gleich sprechen soll - aus dem Augenwinkel,
+  //    mit zittrigen Haenden vor Aufregung. Rueckmeldung aus der
+  //    Versammlung: Der Start muss gelingen, ohne zielen zu muessen.
+  //    Fuer diese Flaechen gelten deshalb 64 Pixel.
+  //
+  //    NICHT IN DER LISTE steht der Verlassen-Knopf. Er wird hoechstens
+  //    einmal am Abend gebraucht, und ein Fehlgriff dort beendet die
+  //    Sitzung. Bei ihm ist eine kleine Flaeche kein Mangel, sondern
+  //    Absicht.
+  const AM_PULT = '#timerMainBtn, .cl-min, .cl-step';
   const tippziele = [];
   for (const el of ziel.querySelectorAll('button, a, input, select, .cl-row')) {
     if (!sichtbar(el)) continue;
     const r = el.getBoundingClientRect();
     if (!r.width || !r.height) continue;
     if (getComputedStyle(el).display === 'inline') continue;
+    const amPult = el.matches(AM_PULT);
+    const mass = amPult ? 63.5 : 43.5;
     tippziele.push({
       was: nameVon(el),
       text: (el.textContent || '').trim().slice(0, 30),
       breite: rund(r.width),
       hoehe: rund(r.height),
-      zuKlein: r.height < 43.5 || r.width < 43.5,
+      amPult,
+      zuKlein: r.height < mass || r.width < mass,
     });
   }
 
@@ -398,14 +416,14 @@ function anmerkungen(werte) {
       platzhalter.push(`${w.zustand} / ${w.groesse}: ${p.was} schneidet "${p.text}" hart ab`);
     }
     for (const t of (w.tippziele || [])) {
-      if (t.zuKlein) klein.add(`${t.was} ("${t.text}") ist ${t.breite}x${t.hoehe} - ${w.groesse}`);
+      if (t.zuKlein) klein.add(`${t.was} ("${t.text}") ist ${t.breite}x${t.hoehe}, verlangt sind ${t.amPult ? 64 : 44} - ${w.groesse}`);
     }
   }
 
   sammle(verloren, 'Unerreichbarer Inhalt');
   sammle(gekuerzt, 'Abgeschnittener Text');
   sammle(platzhalter, 'Abgeschnittener Platzhalter');
-  sammle([...klein], 'Tippziel unter 44 Pixel');
+  sammle([...klein], 'Zu kleine antippbare Flaeche');
 
   const anzahl = raus.length;
   melde('notice', 'Darstellung', anzahl
@@ -504,12 +522,15 @@ function bericht(werte) {
     z.push('');
   }
 
-  z.push('## Antippbare Flaechen unter 44 Pixel', '');
+  z.push('## Zu kleine antippbare Flaechen', '');
+  z.push('Zwei Masse: 44 Pixel nach WCAG 2.5.8, und 64 Pixel fuer die', '');
+  z.push('Zeitknoepfe - die muss jemand aus dem Augenwinkel und mit', '');
+  z.push('zittrigen Haenden treffen, ohne zielen zu koennen.', '');
   const klein = new Map();
   for (const w of werte) {
     for (const t of (w.tippziele || [])) {
       if (!t.zuKlein) continue;
-      const s = `${t.was} — "${t.text}"`;
+      const s = `${t.was} — "${t.text}" (Mass ${t.amPult ? 64 : 44})`;
       if (!klein.has(s)) klein.set(s, []);
       klein.get(s).push(`${w.groesse}: ${t.breite}x${t.hoehe}`);
     }

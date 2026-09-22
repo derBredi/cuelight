@@ -671,21 +671,31 @@
   #timerButtons {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
+    /* Der Abstand ist hier Schutz, nicht Gestaltung: Er ist die Zone, in
+       der ein Fehlgriff NICHTS ausloest statt das Falsche. */
+    gap: clamp(12px, 1.6vh, 20px);
     justify-content: center;
   }
 
   /* Die einzige gefuellte Flaeche der ganzen Anzeige - und damit die
-     Stelle, auf die jemand ohne Vorwissen zuerst tippt. */
+     Stelle, auf die jemand ohne Vorwissen zuerst tippt.
+
+     GROESSER ALS DIE NORM, und das ist der Punkt: 44 Pixel sind das
+     Mindestmass fuer jemanden, der ruhig sitzt und auf das Ziel schaut.
+     Hier steht jemand gleich vorne und tippt aus dem Augenwinkel, mit
+     zittrigen Haenden vor Aufregung. Rueckmeldung aus der Versammlung:
+     Der Start muss gelingen, ohne zielen zu muessen. Deshalb deutlich
+     groesser als die Laengen daneben - was man am haeufigsten braucht,
+     ist auch die groesste Flaeche. */
   #timerMainBtn {
-    min-height: 44px;
-    padding: 0 20px;
+    min-height: clamp(72px, min(8vw, 12vh), 96px);
+    padding: 0 clamp(32px, 4.5vw, 56px);
     border: none;
     border-radius: 999px;
     background: var(--notice-bg);
     color: var(--bg);
     font-family: var(--font);
-    font-size: clamp(14px, 1.6vw, 17px);
+    font-size: clamp(19px, 2.2vw, 26px);
     font-weight: 600;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
@@ -695,15 +705,19 @@
      knoepfe "-" und "+" sehen genauso aus - sie sind dieselbe Art Angebot. */
   .cl-min,
   .cl-step {
-    width: 44px;
-    height: 44px;
+    /* Ebenfalls weit ueber dem Mindestmass - Begruendung siehe
+       #timerMainBtn. Jede dieser Flaechen startet sofort einen Countdown
+       dieser Laenge; ein Fehlgriff startet also nicht nichts, sondern das
+       Falsche. */
+    width: clamp(64px, min(7vw, 11vh), 88px);
+    height: clamp(64px, min(7vw, 11vh), 88px);
     padding: 0;
     border: 1px solid var(--line);
     border-radius: 50%;
     background: none;
     color: var(--muted);
     font-family: var(--font);
-    font-size: clamp(13px, 1.5vw, 16px);
+    font-size: clamp(20px, min(2.4vw, 3vh), 28px);
     font-variant-numeric: tabular-nums;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
