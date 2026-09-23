@@ -1,82 +1,93 @@
 <p align="center">
-  <img src="assets/logo.png" width="160" alt="CueLight Logo" />
+  <img src="assets/logo.png" width="120" alt="" />
 </p>
 
-# CueLight für Zoom
+# CueLight
 
 [![Docker-Image veröffentlichen](https://github.com/derbredi/cuelight/actions/workflows/publish.yml/badge.svg)](https://github.com/derbredi/cuelight/actions/workflows/publish.yml)
 
-**Wortmeldungen aus einem Zoom-Meeting, groß genug, um sie aus dem
-Augenwinkel zu sehen.**
-
-Wer vor Publikum spricht und nebenbei Zuhörer aus Zoom dazunehmen will,
-hat ein Problem: Das kleine gelbe Handzeichen in der Teilnehmerliste sieht
-man nur, wenn man direkt hinschaut. CueLight zeigt stattdessen auf einem
-Tablet oder Bildschirm jede gehobene Hand als große, blinkende Kachel mit
-dem Namen – auffällig genug, dass man sie mitten im Satz bemerkt.
-
-Ein Tipp auf eine Kachel schaltet die Person frei, sodass sie sofort
-sprechen kann.
+**Wer sich aus Zoom meldet, steht groß auf dem Pult. Dazwischen ist
+derselbe Bildschirm deine Uhr.**
 
 <p align="center">
-  <img src="assets/demo.gif" width="330" alt="Wortmeldungen erscheinen als große, blinkende Kacheln; die dritte wird freigeschaltet, springt nach vorn und färbt sich grün" />
+  <img src="assets/anzeige.png" width="760" alt="Die Anzeige mit sieben Namen als farbige Kacheln. Anna Weber ist grün und spricht seit 49 Sekunden, die anderen sind orange und haben die Hand gehoben. Darüber links die laufende Redezeit, rechts die Uhrzeit." />
 </p>
+
+<p align="center"><sub><b>Orange</b>: hat sich gemeldet. <b>Grün</b>: Mikrofon offen, kann sprechen. Wer zuerst dran war, steht oben.</sub></p>
+
+Während eines Programmpunkts hast du den Saal im Blick und sollst
+gleichzeitig mitbekommen, wenn sich jemand über Zoom zu Wort meldet.
+Das kleine gelbe Handzeichen in der Teilnehmerliste sieht man nur, wenn
+man direkt hinschaut. CueLight zeigt jede gehobene Hand als große Kachel
+mit dem Namen – auffällig genug, dass man sie aus dem Augenwinkel sieht.
+Neben jedem Namen läuft mit, wie lange die Hand schon oben ist; du rufst
+also in der richtigen Reihenfolge auf, ohne dir etwas merken zu müssen.
+
+Und du rufst nicht nur auf: **Ein Tippen auf die Kachel schaltet das
+Mikrofon frei.** Die Person kann sofort sprechen, ohne dass jemand ein
+Zeichen zur Technik geben muss.
+
+## Die meiste Zeit ist es deine Uhr
+
+Meldungen kommen selten, die Uhrzeit brauchst du ständig. Deshalb zeigt
+dasselbe Gerät sie groß an, solange nichts los ist – darunter Stoppuhr und
+Timer für jeden Programmpunkt, und ganz unten, wer im Meeting ist. Ein
+grüner Punkt steht für ein offenes Mikrofon.
+
+<p align="center">
+  <img src="assets/uhr.png" width="760" alt="Die Anzeige zeigt groß die Uhrzeit. Darunter „Stoppuhr und Timer“ mit den Werten 3, 5, 10, 15 und 30 und einem Start-Knopf, ganz unten die Namen aus dem Meeting." />
+</p>
+
+Eine **Zahl** startet einen Countdown über so viele Minuten, **Start**
+zählt einfach hoch. In der letzten Minute wird die Anzeige orange, bei
+null zählt sie den Überzug hoch, und eine Minute später räumt sie sich
+selbst weg – damit der nächste Redner nicht die Zeit des vorherigen
+vorfindet.
+
+<p align="center">
+  <img src="assets/countdown.png" width="760" alt="Dieselbe Anzeige mit laufendem Countdown: groß die verbleibende Zeit in Orange, darunter Stopp sowie Minus und Plus für eine Minute weniger oder mehr." />
+</p>
+
+Wenn auch Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am
+Ende der Adresse die Namen aus; `?namen=1` schaltet sie wieder ein.
 
 ## Was du brauchst
 
 - **Einen Rechner mit Docker**, der während der Veranstaltung läuft. Ein
-  Raspberry Pi oder ein NAS reicht völlig.
+  Raspberry Pi oder ein NAS reicht.
 - **Eine Adresse mit `https://`.** Ohne Verschlüsselung lässt Zoom keinen
-  Beitritt zu – das gilt für jedes Gerät, auch für ein nagelneues. Der
-  nächste Abschnitt zeigt, wie du dazu kommst.
-- **Ein Zoom-Konto**, unter dem die Meetings stattfinden.
-- **Ein Anzeigegerät** mit einem einigermaßen aktuellen Browser: Tablet,
-  Laptop oder ein Bildschirm am Rechner. Zoom unterstützt die aktuelle
-  Browser-Version und zwei vorherige. Ob ein älteres Gerät noch mitmacht,
-  klärt der Test unter „Wenn etwas nicht klappt".
-
-CueLight tritt dem Meeting als eigener, stummer Teilnehmer bei. Auf dem
-Rechner, der das Meeting hostet, muss nichts installiert werden.
-
-## Eine Adresse mit https einrichten
-
-CueLight verschlüsselt nicht selbst – das übernimmt etwas, das davor
-sitzt. Zwei verbreitete Wege:
-
-- **Cloudflare Tunnel** (`cloudflared`): Braucht keine offenen Ports am
-  Router und bringt das Zertifikat mit. Zu Hause meist der bequemste Weg.
-- **Ein Reverse-Proxy** wie Caddy, nginx Proxy Manager oder Traefik mit
-  einem Zertifikat von Let's Encrypt. Bei Caddy sind es zwei Zeilen im
-  `Caddyfile`, das Zertifikat besorgt er sich selbst:
-
+  Beitritt zu. CueLight verschlüsselt nicht selbst – das übernimmt etwas,
+  das davor sitzt: ein **Cloudflare Tunnel** (keine offenen Ports, bringt
+  das Zertifikat mit) oder ein **Reverse-Proxy** wie Caddy, bei dem es zwei
+  Zeilen sind:
   ```
   cuelight.deine-domain.de {
       reverse_proxy 127.0.0.1:4000
   }
   ```
+  Zum ersten Ausprobieren geht es auf dem Server selbst auch ohne:
+  `http://localhost:4000` gilt dem Browser als sicher.
+- **Ein Zoom-Konto**, unter dem die Meetings stattfinden.
+- **Ein Anzeigegerät** mit aktuellem Browser – ein Tablet ist das
+  Naheliegende, ein alter Laptop tut es auch.
 
-Beide Wege setzen eine eigene Domain voraus. Zum ersten Ausprobieren geht
-es auch ohne: Direkt auf dem Server selbst funktioniert
-`http://localhost:4000`, weil der Browser die eigene Maschine als sicher
-behandelt.
+CueLight tritt dem Meeting als eigener, stummer Teilnehmer bei. Auf dem
+Rechner, der das Meeting hostet, muss nichts installiert werden.
 
 ## Einrichten
 
 ### 1. Zoom-App anlegen
 
-Einmalig, kostenlos, dauert fünf Minuten. Melde dich dafür mit dem
-Zoom-Konto an, unter dem die Meetings später laufen – CueLight kann nur
-Meetings dieses Kontos beitreten.
+Einmalig, kostenlos, fünf Minuten. Mit dem Zoom-Konto anmelden, unter dem
+die Meetings laufen – CueLight kann nur Meetings dieses Kontos beitreten.
 
 1. Auf [marketplace.zoom.us](https://marketplace.zoom.us) anmelden.
 2. **Develop → Build App → General App** anlegen.
 3. Unter **Features → Embed** das **Meeting SDK** einschalten.
 4. Unter **Scopes** den Eintrag `user:read:token` hinzufügen.
-5. Als **Redirect-URL** die Adresse eintragen, unter der CueLight später
-   erreichbar ist, mit `/oauth/callback` am Ende:
-   `https://deine-domain.de/oauth/callback`.
+5. Als **Redirect-URL** deine Adresse mit `/oauth/callback` am Ende
+   eintragen: `https://deine-domain.de/oauth/callback`.
 6. Unter **App Credentials** stehen **Client ID** und **Client Secret**.
-   Diese beiden Werte brauchst du gleich.
 
 Die App muss nicht veröffentlicht werden.
 
@@ -91,180 +102,103 @@ nano .env                 # Client ID und Client Secret eintragen
 docker compose up -d
 ```
 
-Die Zugangsdaten stehen bewusst in der `.env` und **nicht** in der
-`docker-compose.yml`. So lässt sich die Stack-Datei jederzeit durch eine
-neuere ersetzen, ohne dass die eigenen Werte verloren gehen.
+Die Zugangsdaten stehen in der `.env`, nicht in der `docker-compose.yml` –
+so lässt sich die Stack-Datei später durch eine neuere ersetzen, ohne dass
+die eigenen Werte verloren gehen. Fehlt eine Pflichtangabe, bricht
+`docker compose up` sofort mit einem Hinweis ab, statt einen Container zu
+starten, der erst beim Beitritt scheitert.
 
-Fehlt eine der beiden Pflichtangaben, bricht `docker compose up` sofort
-mit einem Hinweis ab – statt einen Container zu starten, der erst beim
-Beitritt scheitert.
+**Mit Portainer:** *Stacks → Add stack*, den Inhalt der
+`docker-compose.yml` einfügen, unter *Environment variables* dieselben
+Namen wie in der `.env.example` eintragen, *Deploy*.
 
-Mit **Portainer**: *Stacks → Add stack*, den Inhalt der
-`docker-compose.yml` einfügen, unten unter *Environment variables*
-dieselben Namen wie in der `.env.example` eintragen, *Deploy*. Am Text
-der Stack-Datei ist auch dort nichts zu ändern.
+**Läuft alles?** `docker compose logs cuelight | head -20` – ganz oben
+steht eine Selbstprüfung, die in ganzen Sätzen sagt, was noch fehlt.
+`[FEHLT]` muss erledigt werden, `[Hinweis]` ist eine Entscheidung, kein
+Fehler.
 
-### Läuft alles?
+### 3. Beitreten
 
-```bash
-docker compose logs cuelight | head -20
-```
+Auf dem Anzeigegerät die Adresse öffnen – vollständig mit `https://`
+davor –, die Meeting-ID eintragen und auf **Beitreten** tippen. Beim
+allerersten Mal schickt dich ein Knopf zu Zoom: Dort gibst du CueLight
+einmal frei, das gilt danach dauerhaft.
 
-Ganz oben steht eine **Selbstprüfung**. Sie sagt in ganzen Sätzen, was
-noch fehlt und was das bedeutet:
+Meeting-ID, Kenncode und Anzeigename merkt sich CueLight auf dem Gerät.
+Legst du die Seite auf den Startbildschirm, ist sie beim nächsten
+Antippen sofort wieder im Meeting. Der **Lesezeichen-Link** im Aufklapper
+enthält dafür kein Passwort; der Kenncode bleibt auf dem Gerät.
 
-```
---- CueLight: Selbstpruefung ---
-[ok     ] Zoom-Zugangsdaten: ZOOM_CLIENT_ID und ZOOM_CLIENT_SECRET sind gesetzt.
-[ok     ] Passwortschutz: Beim ersten Aufruf fragt CueLight einmal nach dem Passwort.
-[Hinweis] Zoom-Freigabe: Noch keine Freigabe erteilt. Einmalig /oauth/authorize …
---- Nichts Dringendes offen. ---
-```
-
-Was mit `[FEHLT]` markiert ist, muss erledigt werden – sonst läuft
-CueLight nicht. `[Hinweis]` ist eine Entscheidung, die du treffen
-solltest, aber kein Fehler.
-
-### 3. Loslegen
-
-Öffne auf dem Anzeigegerät deine Adresse – am besten vollständig mit
-`https://` davor, weil manche Geräte sonst bei einer unverschlüsselten
-Verbindung bleiben. Dann die Meeting-ID eintragen und auf **Beitreten**
-tippen.
-
-Beim allerersten Mal erscheint ein blauer Knopf, der dich zu Zoom
-schickt. Dort meldest du dich mit dem Konto an, das die Meetings hostet,
-und gibst CueLight einmal frei. Das gilt danach dauerhaft.
-
-Probier das einmal vorab aus – mit dem Gerät und der Adresse, die später
-wirklich zum Einsatz kommen, und nicht erst am Veranstaltungstag.
+Probier das vorab aus – mit dem Gerät und der Adresse, die später wirklich
+zum Einsatz kommen, nicht erst am Veranstaltungstag.
 
 ## Bedienen
 
 - **Kachel antippen** schaltet die Person frei. Dafür braucht CueLight im
   Meeting Host- oder Co-Host-Rechte – die gibst du ihm in der
   Zoom-Teilnehmerliste wie jedem anderen auch.
-- **Alle Hände herunternehmen** erscheint unter der letzten Kachel.
+- **Alle Hände herunternehmen** steht unter der letzten Kachel.
 - **Verlassen** ist der Knopf oben rechts. Danach bleibt CueLight im
-  Formular stehen, bis du wieder selbst startest.
-- Unter welchem Namen CueLight im Meeting auftaucht, legst du im Feld
-  **Anzeigename** fest. Bleibt es leer, heißt es „CueLight".
-- Meeting-ID, Kenncode und Anzeigename merkt sich CueLight auf dem Gerät.
-  Legst du die Seite auf den Startbildschirm, ist sie beim nächsten
-  Antippen sofort wieder im Meeting.
-- Quer gehaltene Geräte zeigen die Meldungen nebeneinander in zwei
-  Spalten.
-
-### Wenn sich niemand meldet
-
-Dann zeigt CueLight die Uhrzeit, darunter „Mit Zoom verbunden als …" mit
-dem eigenen Anzeigenamen und der Meeting-ID – das beantwortet die
-häufigste Frage von Erstbetrachtern, ob das Gerät überhaupt eingewählt
-ist. Außerdem, wer im Meeting ist – in derselben
-Reihenfolge wie Zoom selbst: Host, Co-Hosts, offene Mikrofone, danach
-alphabetisch. Ein grüner Punkt markiert ein offenes Mikrofon, so siehst du
-auch jemanden, der spricht, ohne die Hand gehoben zu haben. Sobald sich
-jemand meldet, verschwindet die Ansicht.
-
-### Redezeit
-
-Unter der Uhrzeit steht eine Reihe Knöpfe: Eine **Zahl** startet einen
-Countdown über so viele Minuten, **Start** zählt einfach hoch. Ein Tipp
-genügt, und er startet immer von vorn — auch wenn schon etwas läuft.
-
-Während die Zeit läuft, stehen dort nur noch die Zeit und **Stopp**. In der
-letzten Minute wird die Anzeige orange, bei null zählt sie den Überzug
-hoch (`+0:20`), und eine Minute später räumt sie sich selbst weg — damit
-der nächste Redner nicht die Zeit des vorherigen vorfindet.
-
-Stehen Wortmeldungen an, erscheint die Zeit klein oben links. Dort ist sie
-nur Anzeige; bedient wird sie im Ruhezustand.
-
-Wenn auch Publikum auf den Bildschirm schauen kann, blendet `?namen=0` am
-Ende der Adresse die Namen aus. CueLight merkt sich das; `?namen=1`
-schaltet sie wieder ein. Die Teilnehmerzahl bleibt in beiden Fällen
-stehen.
+  Formular, bis du wieder selbst beitrittst.
 
 ## Aus dem Internet erreichbar? Dann absichern
 
-Wer CueLight öffnen kann, kann damit deinem Zoom-Meeting beitreten. Sobald
-es also unter einer öffentlichen Adresse läuft, gehört ein Riegel davor.
-
-**Der einfache Weg:** Trag in der `docker-compose.yml` bei
-`CUELIGHT_PASSWORD` ein Passwort ein und starte den Container neu. Beim
+Wer CueLight öffnen kann, kann damit deinem Meeting beitreten. Läuft es
+unter einer öffentlichen Adresse, gehört ein Riegel davor: Trag in der
+`.env` bei `CUELIGHT_PASSWORD` ein Passwort ein und starte neu. Beim
 ersten Aufruf fragt CueLight einmal danach und merkt sich die Anmeldung
-ein Jahr lang.
-
-**Hast du schon eine Zugriffskontrolle** – Cloudflare Access, einen
-Reverse-Proxy mit Passwortschutz oder ein VPN –, dann lass
-`CUELIGHT_PASSWORD` leer. Zweimal anmelden muss sich niemand.
+ein Jahr lang. Hast du schon eine Zugriffskontrolle – Cloudflare Access,
+Proxy mit Passwort, VPN –, lass das Feld leer.
 
 ## Betrieb
 
 | Aufgabe | Befehl |
 |---|---|
-| Aktualisieren | `docker compose pull && docker compose up -d` |
+| Aktualisieren | Fassungsnummer in der `docker-compose.yml` anpassen, dann `docker compose pull && docker compose up -d` |
 | Stoppen | `docker compose down` |
-| Protokoll ansehen | `docker compose logs -f` |
+| Protokoll | `docker compose logs -f` |
 
-Nach einem Neustart des Servers startet CueLight von selbst wieder mit.
+Die `docker-compose.yml` nennt eine **feste Fassung** und kein `latest`:
+Vor einer Veranstaltung soll nichts ungefragt eine neue Version unter das
+Gerät schieben. Welche Fassungen es gibt, steht unter
+[Releases](https://github.com/derbredi/cuelight/releases); welche läuft,
+klein unten im Einrichtungsformular. Nach einem Neustart des Servers
+startet CueLight von selbst wieder.
 
-**Auf eine ältere Fassung zurück:** In der `docker-compose.yml` statt
-`:latest` eine feste Version eintragen, etwa
-`ghcr.io/derbredi/cuelight:1.2.5`, dann `docker compose up -d`. Alle
-Versionen bleiben dauerhaft verfügbar. Welche gerade läuft, steht klein
-unten im Einrichtungsformular. Vor einer wichtigen Veranstaltung lohnt es
-sich, die getestete Version festzunageln statt `:latest` zu ziehen.
-
-**Backup:** Es genügt, die `docker-compose.yml` und den Ordner `data/` zu
-sichern. Beachte dabei: In `data/` liegt der Zoom-Zugang – das Backup ist
-also so schützenswert wie ein Passwort.
+**Backup:** `docker-compose.yml`, `.env` und der Ordner `data/`. In
+`data/` liegt der Zoom-Zugang – das Backup ist so schützenswert wie ein
+Passwort.
 
 ## Wenn etwas nicht klappt
 
-**Der Beitritt schlägt fehl.** Gehört das Meeting zu demselben Zoom-Konto,
-unter dem du die App angelegt hast? Meetings fremder Konten lässt Zoom
-nicht zu.
-
-**Der Beitritt hängt und bricht dann ab.** Steht in der Adresszeile
-`https://`? Ohne Verschlüsselung fehlen dem Browser Funktionen, die Zoom
-zwingend braucht. Ältere Geräte wechseln nicht von selbst, dort also die
-Adresse vollständig eintippen. Passiert auf einem Gerät gar nichts, öffne
-dort `zoom.us/wc/join` und tritt einem beliebigen Meeting bei – das
-benutzt dieselbe Technik. Klappt das auch nicht, ist das Gerät zu alt.
-
-**Freischalten funktioniert nicht.** Dann hat CueLight im Meeting keine
-Host- oder Co-Host-Rechte.
-
-**Gehobene Hände tauchen nicht auf, oder etwas anderes klemmt.** Öffne die
-Seite mit `?debug=1` am Ende der Adresse: Dann zeigt CueLight
-Fehlermeldungen direkt auf dem Bildschirm an – auch auf einem Tablet, ohne
-Anschluss an einen Rechner – und schreibt mit, was Zoom über die
-Teilnehmer liefert. Damit bitte ein Issue aufmachen.
-
-**Anderes Zoom-Konto nötig?** Im Einrichtungsformular unter
-„Lesezeichen-Link und Zoom-Freigabe" gibt es **Freigabe zurücksetzen**. Danach kann ein
-anderes Konto freigeben. Gehört die Zoom-App selbst zu einem anderen
-Konto, brauchst du dort eine neue App (Schritt 1) und neue Werte in der
-`docker-compose.yml` – Zoom-Apps lassen sich nicht umziehen.
+- **Der Beitritt schlägt fehl.** Gehört das Meeting zu demselben
+  Zoom-Konto, unter dem die App angelegt ist? Fremde Konten lässt Zoom
+  nicht zu.
+- **Es hängt beim Verbinden.** Steht `https://` in der Adresszeile? Ohne
+  Verschlüsselung fehlen dem Browser Funktionen, die Zoom braucht. Nach
+  zehn Sekunden erscheint **Abbrechen** und bringt dich zurück ins
+  Formular. Passiert auf einem Gerät gar nichts, öffne dort
+  `zoom.us/wc/join` und tritt einem beliebigen Meeting bei – dieselbe
+  Technik. Klappt das auch nicht, ist das Gerät zu alt.
+- **Freischalten geht nicht.** Dann hat CueLight im Meeting keine Host-
+  oder Co-Host-Rechte.
+- **Etwas anderes klemmt.** Die Seite mit `?debug=1` öffnen: Dann zeigt
+  CueLight Fehler direkt auf dem Bildschirm, auch auf einem Tablet ohne
+  Rechner. Damit bitte ein Issue aufmachen.
+- **Anderes Zoom-Konto nötig?** Im Aufklapper unter dem Formular:
+  **Freigabe zurücksetzen**. Gehört die Zoom-App selbst zu einem anderen
+  Konto, brauchst du dort eine neue App und neue Werte in der `.env`.
 
 ## Mitmachen
 
-Fehler gefunden oder eine Idee? Gerne ein Issue oder einen Pull Request
-öffnen. Sicherheitslücken bitte nicht öffentlich, sondern wie in
-[SECURITY.md](SECURITY.md) beschrieben melden.
+Fehler gefunden oder eine Idee? Gerne ein Issue oder einen Pull Request.
+Sicherheitslücken bitte nicht öffentlich, sondern wie in
+[SECURITY.md](SECURITY.md) beschrieben.
 
 Wer am Code etwas ändern möchte: Repo klonen, in der `docker-compose.yml`
-`image:` durch `build: .` ersetzen und mit `docker compose up -d --build`
-bauen.
-
-Das Bild oben ist eine echte Aufnahme der laufenden Anwendung. Nach einer
-Änderung an der Oberfläche lässt es sich neu erzeugen:
-
-```bash
-npm install --no-save playwright && npx playwright install chromium
-node tools/screenshots.js
-```
+`image:` durch `build: .` ersetzen, `docker compose up -d --build`. Bei
+jedem Push laufen die Tests, und ein Messlauf nimmt die Oberfläche in
+allen Zuständen und Bildschirmgrößen auf – die Bilder oben stammen daraus.
 
 ## Lizenz
 
