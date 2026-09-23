@@ -918,20 +918,29 @@
          dreimal 46% nicht nebeneinander passen. Auf schmalen Geraeten
          greift stattdessen die Untergrenze von 360px. */
       grid-template-columns: repeat(auto-fit, minmax(max(360px, 46%), 1fr));
-      /* Die Zeilen wachsen mit, aber nur bis 26vh.
-         GEMESSEN UND ZURUECKGENOMMEN: Ohne Obergrenze (grid-auto-rows:
-         1fr) fuellen die Kacheln die Hoehe vollstaendig aus - eine
-         einzelne Meldung wird dann ein bildschirmfuellender gruener
-         Block. Auf der Aufnahme war das nicht besser, sondern nur laut.
-         Schwerer wiegt aber: Jede neue Meldung haette alle Kacheln neu
-         bemessen, mitsamt der Schrift darin. Auf dieser Anzeige bedeutet
-         Bewegung "jemand meldet sich" - ein Bildschirm, der bei jeder
-         Meldung komplett neu aufbaut, verbraucht genau dieses Signal.
-         26vh nutzen den leeren Platz, ohne ihn zur Regel zu machen. */
-      grid-auto-rows: minmax(min-content, 26vh);
+      /* min-content, nicht 1fr: Die Kachel haelt sich an ihren Inhalt.
+         ZWEIMAL VERSUCHT UND ZWEIMAL GEMESSEN, das Ergebnis steht hier,
+         damit es niemand ein drittes Mal versucht:
+
+         Der leere Platz unter wenigen Kacheln laesst sich nicht sinnvoll
+         auffuellen. Mit 1fr wird eine einzelne Meldung ein
+         bildschirmfuellender Block; mit einer Obergrenze von 26vh eine
+         grosse Farbflaeche mit dem Namen einsam in der Mitte. Beides
+         nicht besser, nur groesser.
+
+         Und die Schrift kann nicht mitwachsen: Bei zwei Spalten ist die
+         BREITE die Grenze, nicht die Hoehe. Ein Lauf mit an der Kachel
+         gemessener Schrift brachte 56 Befunde statt 8 - abgeschnitten
+         wurden dann nicht die Ausnahmen, sondern gewoehnliche Namen wie
+         "Anna Weber".
+
+         Der leere Platz ist also der Preis dafuer, dass jeder Name
+         vollstaendig dasteht. Das ist der richtige Preis. */
+      grid-auto-rows: min-content;
       /* Spaltenabstand mindestens 26px, damit sich die Scheine zweier
          nebeneinanderliegender Kacheln nicht beruehren. */
       gap: 2vh max(2vw, 26px);
+      align-content: start;
     }
   }
 
@@ -1169,15 +1178,6 @@
     #btSec {
       font-size: clamp(8px, min(1.26vw, 2.5vh), 19px);
     }
-  }
-
-  /* Im Hochformat wachsen die Kacheln genauso mit, bis zur gleichen
-     Obergrenze. Dort ist #list eine Spalte statt eines Rasters, das macht
-     also flex-grow statt grid-auto-rows - die Begruendung fuer die
-     Obergrenze steht oben bei #list im Querformat. */
-  #list > .cl-row {
-    flex: 1 1 auto;
-    max-height: 26vh;
   }
 
   /* Meldungen ohne alert(): ein alert() blockiert den JS-Thread, damit
