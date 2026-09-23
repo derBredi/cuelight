@@ -1050,6 +1050,17 @@
     padding-bottom: 1vh;
   }
 
+  /* Die zweite Zeile unter "Verbinde …" ist manchmal ein ganzer Satz -
+     "Es dauert laenger als gewoehnlich. Haeufigste Gruende: …". Ohne
+     Grenze lief er auf dem iPad ueber die volle Breite, fast 1000 Pixel
+     in einer Zeile; das liest niemand als Satz. 60 Zeichen sind eine
+     Satzbreite. Nachgesehen auf der Aufnahme verbinden-wartet. */
+  #connectingSub {
+    max-width: 60ch;
+    margin-inline: auto;
+    line-height: 1.45;
+  }
+
   /* Top-ausgerichtet statt zentriert: bei vielen Meldungen scrollt man von
      oben nach unten durch eine feste Reihenfolge - vorhersehbarer fuers
      Touch-Scrollen als eine vertikal zentrierte Liste, die nach beiden
