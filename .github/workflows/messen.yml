@@ -107,6 +107,35 @@ jobs:
             darstellung/messwerte.json
           retention-days: 30
 
+
+      # Vier Aufnahmen verkleinert fuer die README, als eigenes Artefakt.
+      # Die README zeigt echte Aufnahmen der Anwendung und keine
+      # Zeichnungen; damit sie nach einer Aenderung an der Oberflaeche
+      # nicht veralten, kommen sie aus demselben Lauf, der die Oberflaeche
+      # misst. Nachziehen heisst: Artefakt "readme-bilder" herunterladen
+      # und nach assets/ kopieren.
+      #
+      # 1100 Pixel breit wie die Bilder von meldungen.app; -dither None
+      # aus demselben Grund wie dort: Ohne das rauschen die dunklen
+      # Flaechen.
+      - name: README-Bilder verkleinern
+        if: always()
+        run: |
+          if command -v magick > /dev/null; then IM=magick; else sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends imagemagick > /dev/null && IM=convert; fi
+          mkdir -p readme-bilder
+          paar() { [ -f "darstellung/$1" ] && $IM "darstellung/$1" -resize '1100x>' -strip -dither None -colors 256 "readme-bilder/$2" && echo "readme-bilder/$2"; }
+          paar board-7-kacheln--ipad-quer.png      anzeige.png
+          paar board-namen--ipad-quer.png          uhr.png
+          paar board-redezeit-ende--ipad-quer.png  countdown.png
+          paar einwahl-gefuellt--ipad-hoch.png     einwahl.png
+
+      - name: README-Bilder sichern
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: readme-bilder
+          path: readme-bilder/*.png
+          retention-days: 30
       - name: Bilder sichern
         if: always()
         continue-on-error: true

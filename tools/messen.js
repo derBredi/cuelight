@@ -83,6 +83,12 @@ const ZUSTAENDE = [
   { name: 'verbinden-wartet', ziel: '#board', tun: 'verbindenWartet' },
   { name: 'board-ruhe', ziel: '#board', tun: 'board', kacheln: 0 },
   { name: 'board-redezeit', ziel: '#board', tun: 'board', kacheln: 0, zeit: 5 },
+  // Kurz vor Schluss: fuenf Minuten gewaehlt, 48 Sekunden uebrig - also
+  // orange, und der Minus-Knopf abgeblendet, weil darunter nichts mehr
+  // geht. Der Zeitstempel wird zurueckdatiert statt gewartet; die Anzeige
+  // rechnet und faerbt selbst. Mit Namen, weil dieses Bild die README
+  // bekommt und dort neben dem Uhr-Bild steht, das auch welche hat.
+  { name: "board-redezeit-ende", ziel: "#board", tun: "board", kacheln: 0, zeit: 5, rest: 48, namen: true },
   { name: 'board-namen', ziel: '#board', tun: 'board', kacheln: 0, namen: true },
   { name: 'board-1-kachel', ziel: '#board', tun: 'board', kacheln: 1 },
   { name: 'board-3-kacheln', ziel: '#board', tun: 'board', kacheln: 3 },
@@ -95,7 +101,7 @@ const ZUSTAENDE = [
  * Wird in der Seite ausgefuehrt. Setzt den gewuenschten Zustand direkt,
  * ohne echtes Meeting - genauso wie tools/screenshots.js es schon tut.
  */
-function stelleEin({ art, zeit, namen, namenListe, meldungen }) {
+function stelleEin({ art, zeit, rest, namen, namenListe, meldungen }) {
   // Aufklapper aufklappen. Was zugeklappt ist, sieht niemand - und was
   // niemand sieht, kann auch nicht falsch stehen. Gemessen wird deshalb
   // der unguenstigere Fall: alles offen.
@@ -171,6 +177,13 @@ function stelleEin({ art, zeit, namen, namenListe, meldungen }) {
     // wird gemessen, was auch zu sehen waere.
     const knopf = document.querySelector(`.cl-min[data-min="${zeit}"]`);
     if (knopf) knopf.click();
+    // Rest statt Anfang: Der Startzeitpunkt wird so weit zurueckdatiert,
+    // dass genau "rest" Sekunden uebrig sind. zeitStart ist eine
+    // Variable der Seite, wie raisedHands und render().
+    if (rest) {
+      zeitStart = Date.now() - (zeit * 60 - rest) * 1000;
+      renderZeit();
+    }
   }
 
   render();
@@ -366,6 +379,7 @@ function messe(wahl) {
           art: zustand.tun,
           kacheln: anzahl,
           zeit: zustand.zeit || 0,
+          rest: zustand.rest || 0,
           namen: Boolean(zustand.namen),
           langerName: Boolean(zustand.langerName),
           namenListe: NAMEN.slice(),
