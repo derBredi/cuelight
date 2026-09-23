@@ -1928,7 +1928,26 @@
       const sortiert = [...teilnehmer].sort(
         (a, b) => gruppe(a) - gruppe(b) || a.name.localeCompare(b.name, 'de')
       );
-      const kennung = sortiert.map((t) => gruppe(t) + t.name).join('|');
+      // Der Mikrofonzustand steht HIER noch einmal einzeln, obwohl
+      // gruppe() ihn schon kennt.
+      //
+      // Denn gruppe() kennt ihn nur fuer gewoehnliche Teilnehmende: Ein
+      // Host ist immer 0, ein Co-Host immer 1 - ob das Mikrofon offen ist
+      // oder nicht. Damit blieb der Fingerabdruck unveraendert, wenn genau
+      // diese beiden ihr Mikrofon umschalteten, renderIdle() kehrte
+      // vorzeitig zurueck, und der gruene Punkt fror auf dem Stand des
+      // letzten echten Neuaufbaus ein - mal dauerhaft an, mal dauerhaft
+      // aus. Die Kacheln wechselten dabei korrekt die Farbe, denn die
+      // haengen nicht an dieser Liste.
+      //
+      // Von aussen sah das aus, als haenge der Punkt an Host-Rechten. Er
+      // haengt daran, wer ihn AENDERT.
+      //
+      // Derselbe Fehler war in meldungen.app schon einmal da und dort
+      // genauso behoben.
+      const kennung = sortiert
+        .map((t) => gruppe(t) + (t.muted ? 'm' : 'o') + t.name)
+        .join('|');
       if (kennung === letzteNamen) return;
       letzteNamen = kennung;
 
