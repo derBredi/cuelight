@@ -632,7 +632,12 @@
   }
 
   #clock {
-    transition: font-size 0.25s ease;
+    /* 0,42s statt 0,25s, und eine bremsende Kurve statt "ease".
+       Gemessen (in meldungen.app) schrumpft die Uhr um Faktor 4,0 bis
+       4,7 - 184px -> 46px auf einem quer liegenden Tablet. So ein Sprung
+       in einer Viertelsekunde liest sich als Ruck; ueber 0,42s liest er
+       sich als Bewegung. Uebernommen samt Begruendung. */
+    transition: font-size 0.42s cubic-bezier(0.4, 0, 0.2, 1);
     /* Hoehenbewusst UND breitenbewusst: auf einem hochkant stehenden iPad
        ist die Breite der knappe Wert - mit den frueheren 16vw blieb die Uhr
        dort bei 123px stehen, obwohl vertikal die halbe Flaeche leer war.
@@ -664,13 +669,47 @@
     max-height: 0;
     opacity: 0;
     overflow: hidden;
-    transition: max-height 0.25s ease, opacity 0.25s ease, margin 0.25s ease;
+    /* ZU: erst ausblenden, dann zusammenfahren. Andersherum saehe man
+       einen leeren, aber noch hohen Kasten zusammenklappen.
+       Dauer und Kurve wie bei #clock - die Anzeige soll EINE Handschrift
+       haben. Uebernommen aus meldungen.app. */
+    transition: max-height 0.34s cubic-bezier(0.4, 0, 0.2, 1) 0.10s,
+                margin 0.34s cubic-bezier(0.4, 0, 0.2, 1) 0.10s,
+                opacity 0.14s ease-out;
   }
 
+  /* Die Grenze folgt derselben Rechnung wie die Schriftgroesse von #swMin,
+     plus 18 % Luft fuer Zeilenabstand und Raender.
+
+     Vorher stand hier pauschal 32vh - und das war der Grund fuer das
+     Abgehackte. In meldungen.app nachgemessen: Die echte Hoehe betraegt je
+     nach Geraet 200px, 230px oder 124px; 32vh sind 246px, 328px und 293px.
+     Auf dem Handy liefen damit 137 % der Strecke ins Leere: Die Stoppuhr
+     stand nach knapp der halben Zeit schon da, die restliche Animation
+     bewegte nichts mehr - und beim Schliessen passierte umgekehrt erst
+     einmal lange gar nichts. Mit dieser Bindung ist der Ueberschuss
+     ueberall gleich klein. Die Formel ist dieselbe wie bei #swMin unten;
+     wer die eine aendert, muss die andere mitziehen. */
   #idleMain.cl-running #stopwatch {
-    max-height: 32vh;
+    max-height: calc(clamp(56px, min(30vw, 26vh), 300px) * 1.18);
     opacity: 1;
     margin: 0.8vh 0;
+    /* AUF: erst Platz schaffen, dann einblenden. */
+    transition: max-height 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                margin 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.26s ease-in 0.14s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* Die dritte Zeile ist Pflicht, nicht Zierde: Die Regel oben traegt
+       zwei Kennungen und eine Klasse und schlaegt damit ein blosses
+       "#stopwatch". Ohne sie liefe der Uebergang genau dort weiter, wo
+       jemand ausdruecklich darum gebeten hat, dass nichts wackelt. */
+    #clock,
+    #stopwatch,
+    #idleMain.cl-running #stopwatch {
+      transition: none;
+    }
   }
 
   /* Wer weniger Bewegung wuenscht, bekommt die Punkte als ruhige Reihe -
@@ -761,9 +800,29 @@
 
   /* Platz behalten, Bedeutung abgeben. Der Unterschied zu display: none
      ist der ganze Punkt der zwei Reihen: Was hier unsichtbar wird, zieht
-     nichts hinter sich her. */
+     nichts hinter sich her.
+
+     MIT UEBERGANG, nicht als Schalter: visibility laesst sich uebergehen
+     (es schaltet am Ende der Dauer um), zusammen mit opacity wird daraus
+     ein Ausblenden statt eines Blinkens. Dieselbe Dauer und Kurve wie
+     Uhr und Stoppuhr. Uebernommen aus meldungen.app. */
+  #timerLabel,
+  #timerButtons button {
+    transition: opacity 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                visibility 0.34s,
+                filter 0.06s linear;
+  }
+
   .cl-unsichtbar {
+    opacity: 0;
     visibility: hidden;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    #timerLabel,
+    #timerButtons button {
+      transition: none;
+    }
   }
 
   /* Die einzige gefuellte Flaeche der ganzen Anzeige - und damit die
@@ -1044,7 +1103,6 @@
     border-color: rgba(255, 255, 255, 0.85);
   }
 
-  .cl-row,
   #lowerAllBtn,
   #leaveBtn {
     transition: filter 0.06s linear, border-color 0.06s linear;
@@ -1077,7 +1135,11 @@
       inset 0 1px 0 rgba(255,255,255,0.4),
       inset 0 0 26px -6px var(--speak-inner),
       0 0 9px -1px var(--speak-halo);
-    transition: background 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+    /* Dieselbe Dauer und Kurve wie Uhr, Stoppuhr und Knoepfe - EINE
+       Handschrift, nicht drei. Uebernommen aus meldungen.app. */
+    transition: background 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                border-color 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.34s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   /* War schon mal frei geschaltet, ist aber wieder stumm und hat die Hand
@@ -1099,10 +1161,25 @@
 
   /* Weiches Ausblenden statt hartem Verschwinden, sobald die Hand gesenkt
      wird (siehe scheduleLeave in JS). Neue Kacheln erscheinen bewusst
-     weiterhin hart/sofort - das plötzliche Auftauchen ist Teil des
-     Aufmerksamkeits-Effekts, nur das Verschwinden soll ruhiger wirken. */
+     weiterhin hart/sofort - das ploetzliche Auftauchen ist Teil des
+     Aufmerksamkeits-Effekts, nur das Verschwinden soll ruhiger wirken.
+
+     0.34s statt 0.4s, und dieselbe Kurve wie ueberall sonst. Das ist auch
+     der sicherere Wert: scheduleLeave() entfernt die Kachel nach 450ms.
+     Vorher blieben 50ms Abstand zwischen Ende des Uebergangs und
+     Entfernen, jetzt sind es 110ms. Wer die Dauer hier anfasst, muss
+     diesen Abstand im Blick behalten - wird sie groesser als 450ms,
+     verschwindet die Kachel mitten in ihrer eigenen Animation.
+
+     EIN Kurzschreiben fuer alles, was sich an einer Kachel bewegt: filter
+     und border-color gehoeren mit hinein, sonst springt die Rueckmeldung
+     beim Druecken - die zweite transition-Regel weiter oben hatte sie
+     bisher stillschweigend ueberschrieben. Uebernommen aus meldungen.app. */
   .cl-row {
-    transition: opacity 0.4s ease, transform 0.4s ease;
+    transition: opacity 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                filter 0.06s linear,
+                border-color 0.06s linear;
   }
   .cl-row.cl-leaving {
     animation: none !important;
@@ -1242,14 +1319,37 @@
   .cl-notice.cl-fade {
     opacity: 0;
     transform: translateY(8px);
-    transition: opacity 0.25s ease, transform 0.25s ease;
+    transition: opacity 0.34s cubic-bezier(0.4, 0, 0.2, 1),
+                transform 0.34s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .cl-notice.cl-fade.cl-show { opacity: 1; transform: translateY(0); }
 
-  /* Wer Bewegung reduziert haben will, bekommt statt des Pulsierens einen
-     ruhigen, dauerhaft leuchtenden Rahmen - die Meldung bleibt genauso gut
-     erkennbar, nur ohne Bewegung. */
+  /* Der Weg zurueck zur Uhr.
+   *
+   * render() schaltet zwischen Ruhebildschirm und Kachelliste ueber
+   * display um, und display laesst sich nicht uebergehen. Deshalb hier
+   * eine ANIMATION statt eines Uebergangs: Die spielt von selbst, sobald
+   * das Element wieder dargestellt wird - ohne eine einzige Zeile in
+   * render(), und damit ohne Eingriff in den Teil, der die Funktion traegt.
+   *
+   * Dass render() im Sekundentakt display='' erneut zuweist, startet sie
+   * NICHT neu: Ein Stil, der sich nicht aendert, loest nichts aus.
+   * In meldungen.app nachgemessen mit getAnimations().
+   *
+   * Nur der Rueckweg ist gedaempft. Die Kacheln erscheinen weiterhin hart -
+   * so steht es auch bei listEl.appendChild(). Auf einer Buehne darf eine
+   * Meldung keine 340ms auf ihre Einblendung warten; das Auge soll sie im
+   * selben Moment sehen, in dem sich jemand meldet. Langsam zurueck,
+   * sofort hin: Das ist keine Inkonsequenz, sondern die Aussage. */
+  #empty-state {
+    animation: cl-ruhe-rein 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  @keyframes cl-ruhe-rein {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     /* Nicht abschalten, sondern beruhigen: der Farbwechsel bewegt nichts,
        und ohne ihn verliert die Anzeige ihren Sinn. */
@@ -1257,7 +1357,26 @@
       animation-duration: 2.6s;
     }
     #connectionBanner { animation: none; }
-    .cl-row { transition: none; }
+    #empty-state { animation: none; }
+
+    /* Meldungen behalten ihr Ein- und Ausblenden - Deckkraft bewegt nichts -
+       aber nicht die Verschiebung um 8px. Genau die ist die Bewegung. */
+    .cl-notice.cl-fade {
+      transform: none;
+      transition: opacity 0.34s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .cl-notice.cl-fade.cl-show { transform: none; }
+
+    /* Die Kachelzustaende einzeln aufzaehlen, nicht nur ".cl-row".
+       .cl-row ist (0,1,0), .cl-row.cl-unmuted und .cl-row.cl-done sind
+       (0,2,0) und schlagen ein blosses ".cl-row". Ohne diese beiden
+       Zeilen liefen ihre Uebergaenge genau dort weiter, wo jemand
+       ausdruecklich darum gebeten hat, dass nichts wackelt. */
+    .cl-row,
+    .cl-row.cl-unmuted,
+    .cl-row.cl-done {
+      transition: none;
+    }
   }
 </style>
 </head>
@@ -2114,12 +2233,113 @@
       // zum Uebergang von animieren (die Transition wuerde nicht sichtbar).
       requestAnimationFrame(() => el.classList.add('cl-leaving'));
       info.leaveTimer = setTimeout(() => {
+        // Wo stehen die uebrigen Kacheln, BEVOR diese verschwindet?
+        const vorher = merkePlaetze(el);
+
         el.remove();
         rowElements.delete(id);
         raisedHands.delete(id);
         lastOrderKey = '';
         render();
-      }, 450);
+
+        // Und jetzt von der alten Stelle auf die neue gleiten lassen.
+        gleiteAufNeuePlaetze(vorher);
+        // 450ms sind die Dauer des Ausblendens (340ms) plus Reserve. Bei
+        // reduzierter Bewegung gibt es kein Ausblenden - die Kachel springt
+        // sofort auf unsichtbar (.cl-row { transition: none } im Stil).
+        // Ohne diese Unterscheidung stand sie danach noch fast eine halbe
+        // Sekunde als unsichtbares Loch im Layout - ausgerechnet dort, wo
+        // jemand um Ruhe gebeten hat.
+      }, bewegungReduziert() ? 0 : 450);
+    }
+
+    // Wer weniger Bewegung wuenscht, bekommt sie auch im Skript nicht -
+    // nicht nur im Stylesheet. Dieselbe Abfrage, an der die Uebergaenge
+    // dort haengen.
+    function bewegungReduziert() {
+      try {
+        return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      } catch {
+        return false;
+      }
+    }
+
+    // --- Die Luecke schliesst sich weich ---------------------------------
+    //
+    // DAS PROBLEM: Die verschwindende Kachel blendet weich aus (340ms), aber
+    // ihr Platz verschwand in einem einzigen Bild - naemlich wenn sie aus dem
+    // DOM genommen wird. Die Bewegung war weich, ihr Abschluss nicht.
+    //
+    // WARUM NICHT DIE HOEHE ABBAUEN: Das haette nur im HOCHFORMAT gewirkt.
+    // Dort ist #list eine Flex-Spalte, die uebrigen Kacheln rutschen also
+    // nach. Im QUERFORMAT ist es ein Raster mit zwei Spalten: Faellt die
+    // erste Kachel weg, wandert die zweite von Spalte 2 nach Spalte 1 und
+    // die dritte eine Zeile hoch. Das ist kein Nachrutschen, das ist ein
+    // Umsortieren - und das kann keine Hoehenanimation.
+    //
+    // DESHALB FLIP: Erst merken, wo jede Kachel steht. Dann die Luecke
+    // schliessen und neu zeichnen lassen. Dann jede Kachel ohne Uebergang
+    // auf ihren ALTEN Platz zuruecksetzen (transform) und im naechsten
+    // Bild den transform auf null laufen lassen - ueber den 340ms-Uebergang,
+    // der im Stylesheet ohnehin auf .cl-row steht. Der Browser rechnet nur
+    // die Verschiebung; das ist der billigere Weg, nicht der teurere.
+    //
+    // WAS MAN IM AUGE BEHALTEN MUSS: transform hebt ein Element auf eine
+    // eigene Kompositionsebene, und genau daher kam der iOS-Rechteck-Kasten
+    // um den weichen Schein (siehe die Kommentare bei .cl-pressed und
+    // @keyframes pulse). Hier ist die Transformation einmalig und endet nach
+    // 340ms - anders als damals, wo sie dauerhaft lief; .cl-leaving
+    // transformiert ohnehin schon. Sollte der Kasten doch auftreten, ist es
+    // ein Flackern fuer 340ms auf den nachrutschenden Kacheln und kein
+    // Defekt.
+    //
+    // Bei reduzierter Bewegung passiert nichts davon.
+    //
+    // Uebernommen aus meldungen.app, wo es die Rueckmeldung "die Uebergaenge
+    // wirken ruhiger" bekommen hat.
+    function merkePlaetze(ausser) {
+      const plaetze = new Map();
+      for (const k of rowElements.values()) {
+        if (k === ausser || !k.isConnected) continue;
+        // Kacheln, die selbst gerade ausblenden, bleiben aussen vor: Sie
+        // tragen ueber .cl-leaving schon eine Transformation (scale 0.94),
+        // und eine eingesetzte Verschiebung wuerde die ueberschreiben - die
+        // Kachel spraenge mitten im Ausblenden auf ihre volle Groesse. Der
+        // Fall tritt auf, wenn zwei Leute gleichzeitig die Hand senken.
+        if (k.classList.contains('cl-leaving')) continue;
+        plaetze.set(k, k.getBoundingClientRect());
+      }
+      return plaetze;
+    }
+
+    function gleiteAufNeuePlaetze(vorher) {
+      if (!vorher.size || bewegungReduziert()) return;
+
+      const zuGleiten = [];
+      for (const [k, alt] of vorher) {
+        if (!k.isConnected) continue;
+        const neu = k.getBoundingClientRect();
+        const dx = alt.left - neu.left;
+        const dy = alt.top - neu.top;
+        // Unter einem Pixel lohnt keine Bewegung - und kein Layer.
+        if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+        // Ohne Uebergang zurueck auf die alte Stelle setzen.
+        k.style.transition = 'none';
+        k.style.transform = `translate(${dx}px, ${dy}px)`;
+        zuGleiten.push(k);
+      }
+      if (!zuGleiten.length) return;
+
+      // EIN Frame fuer alle, nicht einer je Kachel: Sonst starten sie
+      // versetzt und die Liste wirkt wellig statt geschlossen.
+      requestAnimationFrame(() => {
+        for (const k of zuGleiten) {
+          // Beide Werte zurueck auf das Stylesheet - dort steht der 340ms-
+          // Uebergang auf transform, und von hier laeuft er nach null.
+          k.style.transition = '';
+          k.style.transform = '';
+        }
+      });
     }
 
     // Gegenstueck zu scheduleLeave: taucht jemand doch wieder in der Liste
