@@ -538,7 +538,7 @@
     height: 100%;
   }
 
-  /* Ruhezustand: Uhr in der Mitte, Teilnehmende unten. Alles bewusst
+  /* Ruhezustand: Uhr in der Mitte, Teilnehmer unten. Alles bewusst
      gedaempft - auf diesem Bildschirm darf nur eine Wortmeldung um
      Aufmerksamkeit werben. */
   #empty-state {
@@ -970,7 +970,7 @@
 
   /* Haelt eine Angabe samt ihrer Einheit zusammen. Ohne das trennte der
      Umbruch auf schmalen Geraeten die Zahl von dem Wort, zu dem sie
-     gehoert ("2" in Zeile eins, "Teilnehmende" in Zeile zwei). */
+     gehoert ("2" in Zeile eins, "Teilnehmer" in Zeile zwei). */
   .cl-teil {
     white-space: nowrap;
   }
@@ -1401,17 +1401,17 @@
       eintragen, starten - CueLight tritt still als Teilnehmer bei.
     </p>
 
-    <label for="meetingNumber">Meeting-Nummer</label>
+    <label for="meetingNumber">Meeting-ID</label>
     <input id="meetingNumber" placeholder="123 4567 8901" inputmode="numeric"
            autocomplete="off" />
 
-    <label for="password">Meeting-Passwort</label>
+    <label for="password">Kenncode</label>
     <input id="password" placeholder="leer lassen, falls keins" autocomplete="off" />
 
-    <label for="displayName">Name im Meeting</label>
+    <label for="displayName">Anzeigename</label>
     <input id="displayName" placeholder="CueLight" autocomplete="off" maxlength="60" />
 
-    <button id="joinBtn">CueLight starten</button>
+    <button id="joinBtn">Beitreten</button>
     <p id="compatWarning" style="display:none;"></p>
 
     <!-- Wird eingeblendet, solange kein Zoom-Konto freigegeben ist. Ein
@@ -1427,7 +1427,7 @@
       </a>
       <p class="cl-hint">
         Mit dem Konto anmelden, das die Meetings hostet. Danach hierher
-        zurück und „CueLight starten".
+        zurück und „Beitreten".
       </p>
     </div>
 
@@ -1519,7 +1519,7 @@
         </div>
       </div>
       <!-- Steht anstelle von Uhr und Teilnehmerzahl, solange keine
-           Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmende" saehe
+           Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmer" saehe
            aus, als liefe alles normal. -->
       <div id="connecting" style="display:none;">
         <!-- Die Punkte zuerst: Sie sagen "es passiert etwas", noch bevor
@@ -1749,14 +1749,14 @@
         renderIdle();
         emptyEl.style.display = '';
         // Uhr und Teilnehmerliste erst, wenn CueLight wirklich IM Meeting
-        // ist - im Warteraum saehe eine laufende Uhr mit "0 Teilnehmende"
+        // ist - im Warteraum saehe eine laufende Uhr mit "0 Teilnehmer"
         // aus, als liefe alles normal.
         idleMainEl.style.display = imMeeting ? '' : 'none';
         attendeesEl.style.display =
           imMeeting && NAMEN_ZEIGEN && teilnehmer.length > 0 ? '' : 'none';
         connectingEl.style.display = imMeeting ? 'none' : '';
         // Auch diese Zeile erst, wenn CueLight wirklich drin ist: Im
-        // Warteraum stand dort sonst "Meeting … · 0 Teilnehmende", und
+        // Warteraum stand dort sonst "Meeting … · 0 Teilnehmer", und
         // gerade sie soll ja die Verbindung belegen.
         emptySubEl.style.display = imMeeting ? '' : 'none';
         connectingSubEl.textContent = warteraumHinweis
@@ -2108,7 +2108,7 @@
       // Der Mikrofonzustand steht HIER noch einmal einzeln, obwohl
       // gruppe() ihn schon kennt.
       //
-      // Denn gruppe() kennt ihn nur fuer gewoehnliche Teilnehmende: Ein
+      // Denn gruppe() kennt ihn nur fuer gewoehnliche Teilnehmer: Ein
       // Host ist immer 0, ein Co-Host immer 1 - ob das Mikrofon offen ist
       // oder nicht. Damit blieb der Fingerabdruck unveraendert, wenn genau
       // diese beiden ihr Mikrofon umschalteten, renderIdle() kehrte
@@ -2147,7 +2147,9 @@
       if (sortiert.length > MAX_NAMEN) {
         const rest = document.createElement('div');
         rest.className = 'cl-more';
-        rest.textContent = `+ ${sortiert.length - MAX_NAMEN} weitere`;
+        // "weiterer" in der Einzahl - "+ 1 weitere" ist falsch. Aus meldungen.app.
+        const uebrig = sortiert.length - MAX_NAMEN;
+        rest.textContent = `+ ${uebrig} ${uebrig === 1 ? 'weiterer' : 'weitere'}`;
         attendeeNamesEl.appendChild(rest);
       }
     }
@@ -2166,7 +2168,7 @@
       // in der Teilnehmerliste wieder.
       // In Abschnitte zerlegt statt als ein Textknoten: sonst darf der
       // Browser an JEDEM Leerzeichen umbrechen, und auf dem iPhone landete
-      // die Zahl in der ersten und "Teilnehmende" in der zweiten Zeile.
+      // die Zahl in der ersten und "Teilnehmer" in der zweiten Zeile.
       // Jeder Abschnitt haelt intern zusammen (.cl-teil), die "·"-Trenner
       // stehen ausserhalb - dort und nur dort wird umgebrochen.
       // Der Namensabschnitt bewusst OHNE Zusammenhalt: ein langer
@@ -2189,7 +2191,7 @@
         emptySubEl.append(el);
       };
       teil(`Meeting ${currentMeetingNumber}`);
-      teil(`${totalAttendees} Teilnehmende`);
+      teil(`${totalAttendees} Teilnehmer`);
     }
 
     function buildRowElement() {
@@ -2570,7 +2572,7 @@
           // Sicherheitsnetz, falls der Statusevent ausbleibt - aber nur bei
           // einer Liste mit Inhalt. Im Warteraum antwortet Zoom bereitwillig
           // mit einer LEEREN Liste, und die galt frueher als Beweis, dass man
-          // drin ist: Dann erschien die Uhr mit "0 Teilnehmende", obwohl
+          // drin ist: Dann erschien die Uhr mit "0 Teilnehmer", obwohl
           // CueLight noch draussen wartete.
           if (attendees.length > 0) {
             hasEverConnected = true;
@@ -2598,7 +2600,7 @@
           const stillRaised = new Set();
 
           attendees.forEach((a) => {
-            // avatar bewusst nicht mehr als Identitaet: zwei Teilnehmende
+            // avatar bewusst nicht mehr als Identitaet: zwei Teilnehmer
             // ohne eigenes Bild koennen dieselbe Avatar-URL haben und waeren
             // sonst eine einzige Kachel.
             const id = a.userId ?? a.userGuid ?? a.userName;
@@ -2724,7 +2726,7 @@
           // Dieselbe Auskunft wie im Warnbalken, nur kurz: Der Balken
           // erklaert, dieser Satz beantwortet die Frage "und jetzt?".
           warteraumHinweis =
-            'CueLight muss vom Host eingelassen werden.';
+            'CueLight steht im Warteraum und muss vom Host eingelassen werden.';
           showConnectionWarning(
             'CueLight wartet im Warteraum des Meetings und muss vom Host ' +
             'eingelassen werden.',
@@ -2743,7 +2745,7 @@
         } else {
           showConnectionWarning(
             'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
-            'noch nicht im Meeting, das Meeting-Passwort stimmt nicht, oder ' +
+            'noch nicht im Meeting, der Kenncode stimmt nicht, oder ' +
             'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
             'CueLight freigegeben ist.',
             { waiting: true }
@@ -2856,7 +2858,7 @@
       // data.status - das ist immer undefined, und damit war dieser ganze
       // Behandler wirkungslos: "verbunden" wurde nie erkannt, "getrennt"
       // nie gemeldet. Aufgefallen ist es erst, als im Warteraum die Uhr mit
-      // "0 Teilnehmende" erschien, obwohl gar keine Verbindung bestand.
+      // "0 Teilnehmer" erschien, obwohl gar keine Verbindung bestand.
       // Der alte Name bleibt als Rueckfallebene stehen, falls eine kuenftige
       // SDK-Version ihn wieder verwendet.
       // Nur der Statuswert: data traegt je nach Ereignis auch Teilnehmer-
@@ -2889,7 +2891,7 @@
           } else {
             showConnectionWarning(
               'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
-              'noch nicht im Meeting, das Meeting-Passwort stimmt nicht, oder ' +
+              'noch nicht im Meeting, der Kenncode stimmt nicht, oder ' +
               'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
               'CueLight freigegeben ist.',
               { waiting: true }
@@ -2970,7 +2972,7 @@
       const serverUrl = window.location.origin;
 
       if (!/^\d{9,12}$/.test(meetingNumber)) {
-        toast('Meeting-Nummer eingeben (9 bis 12 Ziffern).', { error: true });
+        toast('Bitte eine Meeting-ID mit 9 bis 12 Ziffern eingeben.', { error: true });
         return;
       }
       if (typeof ZoomMtg === 'undefined') {
@@ -3020,7 +3022,7 @@
       } finally {
         starting = false;
         joinBtn.disabled = false;
-        joinBtn.textContent = 'CueLight starten';
+        joinBtn.textContent = 'Beitreten';
       }
     }
 
@@ -3269,7 +3271,7 @@
     document.getElementById('copyLinkBtn').addEventListener('click', async () => {
       const linkEl = document.getElementById('bookmarkLink');
       if (!linkEl.value) {
-        toast('Erst die Meeting-Nummer eintragen.', { error: true });
+        toast('Erst die Meeting-ID eintragen.', { error: true });
         return;
       }
       try {

@@ -129,8 +129,8 @@ solltest, aber kein Fehler.
 
 Öffne auf dem Anzeigegerät deine Adresse – am besten vollständig mit
 `https://` davor, weil manche Geräte sonst bei einer unverschlüsselten
-Verbindung bleiben. Dann die Meeting-Nummer eintragen und auf **CueLight
-starten** tippen.
+Verbindung bleiben. Dann die Meeting-ID eintragen und auf **Beitreten**
+tippen.
 
 Beim allerersten Mal erscheint ein blauer Knopf, der dich zu Zoom
 schickt. Dort meldest du dich mit dem Konto an, das die Meetings hostet,
@@ -148,8 +148,8 @@ wirklich zum Einsatz kommen, und nicht erst am Veranstaltungstag.
 - **Verlassen** ist der Knopf oben rechts. Danach bleibt CueLight im
   Formular stehen, bis du wieder selbst startest.
 - Unter welchem Namen CueLight im Meeting auftaucht, legst du im Feld
-  **Name im Meeting** fest. Bleibt es leer, heißt es „CueLight".
-- Meeting-Nummer, Passwort und Name merkt sich CueLight auf dem Gerät.
+  **Anzeigename** fest. Bleibt es leer, heißt es „CueLight".
+- Meeting-ID, Kenncode und Anzeigename merkt sich CueLight auf dem Gerät.
   Legst du die Seite auf den Startbildschirm, ist sie beim nächsten
   Antippen sofort wieder im Meeting.
 - Quer gehaltene Geräte zeigen die Meldungen nebeneinander in zwei
@@ -158,7 +158,7 @@ wirklich zum Einsatz kommen, und nicht erst am Veranstaltungstag.
 ### Wenn sich niemand meldet
 
 Dann zeigt CueLight die Uhrzeit, darunter „Mit Zoom verbunden als …" mit
-dem eigenen Anzeigenamen und der Meeting-Nummer – das beantwortet die
+dem eigenen Anzeigenamen und der Meeting-ID – das beantwortet die
 häufigste Frage von Erstbetrachtern, ob das Gerät überhaupt eingewählt
 ist. Außerdem, wer im Meeting ist – in derselben
 Reihenfolge wie Zoom selbst: Host, Co-Hosts, offene Mikrofone, danach
