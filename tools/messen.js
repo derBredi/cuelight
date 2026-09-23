@@ -73,6 +73,14 @@ const ZUSTAENDE = [
   { name: 'einwahl', ziel: '#setup', tun: 'einwahl' },
   { name: 'einwahl-gefuellt', ziel: '#setup', tun: 'einwahlGefuellt' },
   { name: 'freigabe-noetig', ziel: '#setup', tun: 'freigabe' },
+  // Der Verbinde-Bildschirm, zweimal: in den ersten zehn Sekunden - nur
+  // Punkte und Meeting-Nummer - und danach, wenn die zweite Zeile den
+  // Grund nennt und der Abbrechen-Knopf da ist. Der Knopf ist ein
+  // Tippziel und muss die 44px halten; das sieht man nur, wenn er auch
+  // auf einer Aufnahme steht. Bis hierher wurde dieser Bildschirm nie
+  // gemessen - er war der einzige, den kein Zustand herstellte.
+  { name: 'verbinden', ziel: '#board', tun: 'verbinden' },
+  { name: 'verbinden-wartet', ziel: '#board', tun: 'verbindenWartet' },
   { name: 'board-ruhe', ziel: '#board', tun: 'board', kacheln: 0 },
   { name: 'board-redezeit', ziel: '#board', tun: 'board', kacheln: 0, zeit: 5 },
   { name: 'board-namen', ziel: '#board', tun: 'board', kacheln: 0, namen: true },
@@ -103,6 +111,24 @@ function stelleEin({ art, zeit, namen, namenListe, meldungen }) {
 
   const setup = document.getElementById('setup');
   const board = document.getElementById('board');
+
+  // Verbinden: Anzeige aktiv, aber noch nicht im Meeting. render() zeigt
+  // dann von selbst #connecting statt Uhr und Namen - derselbe Weg wie im
+  // Betrieb vor dem Beitritt. Der Beitrittswaechter laeuft hier NICHT;
+  // was in der zweiten Zeile steht, wird deshalb von Hand gesetzt.
+  if (art === 'verbinden' || art === 'verbindenWartet') {
+    setup.style.display = 'none';
+    board.classList.add('cl-active');
+    imMeeting = false;
+    hasEverConnected = false;
+    currentMeetingNumber = '12345678901';
+    if (art === 'verbindenWartet') {
+      verbindeHinweis = HINWEIS_DAUERT;
+      abbrechenBtn.hidden = false;
+    }
+    render();
+    return;
+  }
 
   if (art !== 'board') {
     board.classList.remove('cl-active');
