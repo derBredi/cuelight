@@ -197,7 +197,7 @@
   }
 
   #setupCard {
-    max-width: 420px;
+    max-width: 460px;
     margin: 0 auto;
     padding: 32px;
     background: var(--panel);
@@ -205,32 +205,38 @@
     border-radius: var(--r-lg);
   }
 
+  /* Das Logo mittig und gross ueber dem Titel, wie das Zeichen in
+     meldungen.app - als Blickfang, nicht als Symbol neben dem Text. Alles
+     auf einer Achse: Logo, Titel, Satz, Felder, Knopf. */
   #setupHead {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 14px;
-    margin-bottom: 6px;
+    gap: 12px;
+    margin-bottom: 8px;
+    text-align: center;
   }
 
   #setupHead img {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 88px;
+    height: 88px;
+    border-radius: 22px;
     flex-shrink: 0;
   }
 
   #setupCard h1 {
-    font-size: 22px;
+    font-size: 26px;
     font-weight: 700;
     letter-spacing: -0.01em;
     margin: 0;
   }
 
   #setupCard .cl-lede {
-    margin: 0 0 22px;
-    font-size: 13px;
+    margin: 0 0 24px;
+    font-size: 14px;
     line-height: 1.5;
     color: var(--muted);
+    text-align: center;
   }
 
   #authNeeded {
@@ -287,16 +293,22 @@
     font-size: 13px;
     color: var(--muted);
     margin: 16px 0 6px;
+    text-align: center;
   }
 
+  /* Groesser und mittig: Die Felder werden am Pult auf einem Tablet
+     ausgefuellt, oft im Stehen. 18px Schrift und 14px Innenabstand statt
+     16 und 12 - und der Text in der Mitte, auf derselben Achse wie Logo
+     und Knopf. */
   #setupCard input {
     width: 100%;
-    padding: 12px;
+    padding: 14px 16px;
     background: #000;
     border: 1px solid var(--line);
     border-radius: var(--r-sm);
     color: var(--text);
-    font-size: 16px; /* < 16px laesst iOS beim Fokus hineinzoomen */
+    font-size: 18px; /* < 16px laesst iOS beim Fokus hineinzoomen */
+    text-align: center;
   }
 
   #meetingNumber {
@@ -322,6 +334,17 @@
   #setupCard button[disabled] {
     opacity: 0.55;
     cursor: default;
+  }
+
+  /* Der eine Knopf, um den es geht - groesser als die Hilfsknoepfe im
+     Aufklapper, die dieselbe Sammelregel oben teilen. Zwei Kennungen im
+     Selektor, weil "#setupCard button" (1,0,1) ein blosses "#joinBtn"
+     (1,0,0) schlaegt. */
+  #setupCard #joinBtn {
+    width: 100%;
+    min-height: 52px;
+    margin-top: 22px;
+    font-size: 18px;
   }
 
   #copyLinkBtn {
@@ -1473,9 +1496,11 @@
       <input id="bookmarkLink" readonly />
       <button id="copyLinkBtn" type="button">Link kopieren</button>
       <p class="cl-hint">
-        Achtung: Der Link enthaelt das Meeting-Passwort im Klartext und landet
-        so auch im Browser-Verlauf. Nur auf Geraeten speichern, die du selbst
-        kontrollierst.
+        Der Link enth&auml;lt <strong>kein</strong> Passwort. Der Kenncode
+        bleibt auf diesem Ger&auml;t gespeichert; auf einem neuen Ger&auml;t
+        wird er einmal eingetippt und dann ebenfalls gemerkt. Als Web-App vom
+        Startbildschirm tritt der Link sofort bei, im Browser f&uuml;llt er
+        nur das Formular vor.
       </p>
 
       <label>Zoom-Freigabe</label>
@@ -1483,6 +1508,14 @@
       <p class="cl-hint">
         Hebt die Freigabe des Zoom-Kontos auf, damit ein anderes Konto
         autorisieren kann. Meeting-Daten bleiben erhalten.
+      </p>
+
+      <!-- Wo CueLight herkommt. Hinter dem Aufklapper, nicht auf der
+           Karte: Wer beitreten will, sucht die Meeting-ID und nicht den
+           Quelltext. -->
+      <p class="cl-hint">
+        Quelltext, Anleitung und Fehlermeldungen:
+        <a href="https://github.com/derbredi/cuelight" target="_blank" rel="noopener">github.com/derbredi/cuelight</a>
       </p>
     </details>
     <div id="version"></div>
