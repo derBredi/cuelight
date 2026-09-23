@@ -127,6 +127,13 @@ Tunnel steht). In Portainer stattdessen die beiden Blöcke aus
 im Zero-Trust-Dashboard steht dann `cuelight:4000` – der Containername,
 kein `localhost`.
 
+**Mehrere Instanzen** – etwa je Saal oder je Zoom-Konto – sind je ein
+eigener Stack mit eigener `.env`: `CUELIGHT_NAME` gibt dem Container
+seinen Namen (und damit dem Tunnel sein Ziel, `saal2:4000`), jede
+Instanz bekommt ihren eigenen `data/`-Ordner und damit ihre eigene
+Zoom-Freigabe. Client ID und Secret können alle teilen; bei Zoom muss nur
+jede Adresse als Redirect URL stehen, eine je Zeile.
+
 **Läuft alles?** `docker compose logs cuelight | head -20` – ganz oben
 steht eine Selbstprüfung, die in ganzen Sätzen sagt, was noch fehlt.
 `[FEHLT]` muss erledigt werden, `[Hinweis]` ist eine Entscheidung, kein

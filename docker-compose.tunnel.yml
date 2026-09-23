@@ -15,7 +15,7 @@
 # ohne Host-Port - so, wie meldungen.app auf demselben Rechner angebunden
 # ist. Als Public Hostname im Zero-Trust-Dashboard steht dann:
 #
-#   Typ HTTP, URL  cuelight:4000
+#   Typ HTTP, URL  cuelight:4000   (bzw. der CUELIGHT_NAME aus der .env)
 #
 # Der Netzname kommt aus der .env (TUNNEL_NETZ), weil er von Rechner zu
 # Rechner verschieden ist. Auf dem Pi, auf dem auch meldungen.app laeuft,
