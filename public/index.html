@@ -895,7 +895,15 @@
                 filter 0.06s linear;
   }
 
-  .cl-unsichtbar {
+  /* MIT #timerBar DAVOR, und das ist keine Verzierung: ".cl-step[disabled]"
+     weiter unten setzt opacity auf 0,3 und wiegt (0,1,1) - ein blosses
+     ".cl-unsichtbar" wiegt (0,1,0) und verliert. Der Minus-Knopf ist
+     unter einer Minute Rest genau dann abgeblendet, wenn er ausblenden
+     soll: "+" lief sauber auf 0, "-" nur auf 0,3 und sprang am Ende der
+     Dauer weg, sobald visibility umschaltete. Rueckmeldung: "verschwinden
+     so ungleichmaessig". Mit der Kennung davor wiegt die Regel (1,1,0) und
+     gewinnt - so steht sie auch in meldungen.app. */
+  #timerBar .cl-unsichtbar {
     opacity: 0;
     visibility: hidden;
   }
