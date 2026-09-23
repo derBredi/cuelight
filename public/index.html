@@ -918,11 +918,13 @@
          dreimal 46% nicht nebeneinander passen. Auf schmalen Geraeten
          greift stattdessen die Untergrenze von 360px. */
       grid-template-columns: repeat(auto-fit, minmax(max(360px, 46%), 1fr));
-      grid-auto-rows: min-content;
+      /* 1fr statt min-content: Die Zeilen teilen sich die verfuegbare
+         Hoehe, die Kacheln fuellen den Bildschirm also aus statt oben zu
+         kleben. Bei zwei Meldungen stand vorher das untere Drittel leer. */
+      grid-auto-rows: 1fr;
       /* Spaltenabstand mindestens 26px, damit sich die Scheine zweier
          nebeneinanderliegender Kacheln nicht beruehren. */
       gap: 2vh max(2vw, 26px);
-      align-content: start;
     }
   }
 
@@ -1159,6 +1161,45 @@
 
     #btSec {
       font-size: clamp(8px, min(1.26vw, 2.5vh), 19px);
+    }
+  }
+
+  /* Im Hochformat teilen sich die Kacheln die Hoehe genauso. Dort ist
+     #list eine Spalte statt eines Rasters, das macht also flex statt 1fr. */
+  #list > .cl-row {
+    flex: 1 1 0;
+  }
+
+  /* --- Die Schrift wird an der KACHEL gemessen, nicht am Bildschirm ----
+     Sobald die Kacheln die Hoehe fuellen, sagt die Bildschirmhoehe nichts
+     mehr darueber, wie viel Platz eine Kachel hat: Eine Meldung bekommt
+     den ganzen Streifen, sieben teilen ihn. Ohne diese Regel waere eine
+     einzelne Meldung ein riesiger Balken mit kleiner Schrift darin.
+
+     DIESER BLOCK STEHT BEWUSST AM ENDE, hinter den Querformat-Regeln. Bei
+     gleicher Spezifitaet gewinnt die spaetere Regel - weiter oben haette
+     ihn der Querformat-Block ueberschrieben, und im Querformat, also
+     ausgerechnet auf dem Pultgeraet, waere er wirkungslos geblieben.
+     Genau daran ist der erste Versuch gescheitert.
+
+     Die bildschirmbezogenen Masse bleiben alle stehen: Ein Browser ohne
+     Container-Abfragen ignoriert cqh und behaelt sie. */
+  .cl-row {
+    container-type: size;
+  }
+
+  @supports (font-size: 1cqh) {
+    .cl-row .cl-name {
+      font-size: clamp(24px, 34cqh, 96px);
+    }
+
+    .cl-row .cl-mic {
+      width: clamp(26px, 30cqh, 72px);
+      height: clamp(26px, 30cqh, 72px);
+    }
+
+    .cl-row .cl-wait {
+      font-size: clamp(12px, 14cqh, 34px);
     }
   }
 
