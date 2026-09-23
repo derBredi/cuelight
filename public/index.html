@@ -1189,17 +1189,26 @@
   }
 
   @supports (font-size: 1cqh) {
+    /* NUR DER NAME, und begrenzt durch die BREITE der Kachel.
+       Zwei Lehren aus einem Lauf, der 56 Befunde brachte statt 8:
+
+       1. Symbol und Wartezeit durften mitwachsen. Auf einer hohen Kachel
+          wurde das Mikrofon dreimal so gross, und zusammen mit der
+          Wartezeit frass es die Breite, die der Name braucht - bei drei
+          Meldungen blieben ihm 204 von 493 Pixeln. Beide bleiben deshalb
+          bei ihrem bildschirmbezogenen Mass.
+
+       2. Die Hoehe allein ist der falsche Massstab. Eine hohe Kachel darf
+          keine Schrift bekommen, die breiter ist als die Kachel selbst -
+          sonst werden ausgerechnet gewoehnliche Namen abgeschnitten.
+          7cqw ist die Grenze: Sie haelt die Schrift in einem Verhaeltnis
+          zur Breite, in dem ein normaler Name Platz hat.
+
+       cqh bleibt trotzdem drin, aber als Untergrenze gedacht: Teilen sich
+       sieben Meldungen einen Telefonbildschirm, soll die Schrift
+       schrumpfen und nicht aus der Kachel ragen. */
     .cl-row .cl-name {
-      font-size: clamp(24px, 34cqh, 96px);
-    }
-
-    .cl-row .cl-mic {
-      width: clamp(26px, 30cqh, 72px);
-      height: clamp(26px, 30cqh, 72px);
-    }
-
-    .cl-row .cl-wait {
-      font-size: clamp(12px, 14cqh, 34px);
+      font-size: clamp(24px, min(34cqh, 7cqw), 72px);
     }
   }
 
