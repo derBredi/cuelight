@@ -750,11 +750,19 @@
     text-align: center;
   }
 
+  /* "Stoppuhr und Timer" statt "Redezeit in Minuten": Das benennt, was
+     die Reihe darunter tut - Start ist die Stoppuhr, die Zahlen sind der
+     Timer - und laedt zum Antippen ein, statt nur eine Einheit zu
+     erklaeren. Rueckmeldung aus der Versammlung.
+
+     Und deutlich groesser als vorher (9 bis 12px): Eine Beschriftung, die
+     man erst suchen muss, erklaert nichts. Immer noch eine Beschriftung
+     und kein Knopf - kleiner als die Ziffern, gesperrt, in Nebenfarbe. */
   #timerLabel {
-    font-size: clamp(9px, 1vw, 12px);
-    letter-spacing: 0.06em;
+    font-size: clamp(13px, min(1.6vw, 2.2vh), 18px);
+    letter-spacing: 0.08em;
     color: var(--muted);
-    margin-bottom: 1vh;
+    margin-bottom: 1.2vh;
   }
 
   #timerButtons {
@@ -1480,7 +1488,7 @@
         <!-- Redezeit. Eine gefuellte Flaeche (Start bzw. Stopp) plus
              Laengen als Varianten - mehr gibt es nicht zu bedienen. -->
         <div id="timerBar">
-          <div id="timerLabel">REDEZEIT IN MINUTEN</div>
+          <div id="timerLabel">STOPPUHR UND TIMER</div>
           <div id="timerButtons">
             <!-- ZWEI REIHEN. Oben die Laengen, unten die Hauptflaeche
                  mit der Feinjustierung links und rechts.
