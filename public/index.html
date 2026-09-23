@@ -566,6 +566,38 @@
     letter-spacing: 0.02em;
   }
 
+  /* Laufende Punkte, uebernommen aus meldungen.app.
+     Sie beantworten die Frage, die "Verbinde mit dem Meeting …" allein
+     offen laesst: ob ueberhaupt noch etwas passiert. Ein stehender Satz
+     sieht nach einer Minute aus wie ein haengender Satz.
+
+     GRAU UND NICHT BUNT: In meldungen.app tragen die Punkte die Farbe der
+     Marke - ausdruecklich, weil ein Ladezeichen keine Farbe tragen darf,
+     die auf dieser Anzeige etwas bedeutet. Hier bedeuten Orange und Gruen
+     eine Wortmeldung und ein offenes Mikrofon; die einzige Farbe ohne
+     Bedeutung ist die des Textes daneben. Also die. */
+  .cl-punkte {
+    display: flex;
+    gap: 1.4vw;
+    margin-bottom: 1.2vh;
+  }
+
+  .cl-punkte i {
+    width: clamp(8px, 1.2vh, 14px);
+    height: clamp(8px, 1.2vh, 14px);
+    border-radius: 50%;
+    background: var(--muted);
+    animation: cl-blink 1.4s ease-in-out infinite;
+  }
+
+  .cl-punkte i:nth-child(2) { animation-delay: .2s; }
+  .cl-punkte i:nth-child(3) { animation-delay: .4s; }
+
+  @keyframes cl-blink {
+    0%, 100% { opacity: .25; }
+    50%      { opacity: 1; }
+  }
+
   /* Alles zusammen in der Mitte: Uhr, Countdown, Knoepfe.
 
      EIN VERSUCH, DER ZURUECKGENOMMEN WURDE: Uhr und Countdown lagen
@@ -639,6 +671,12 @@
     max-height: 32vh;
     opacity: 1;
     margin: 0.8vh 0;
+  }
+
+  /* Wer weniger Bewegung wuenscht, bekommt die Punkte als ruhige Reihe -
+     sichtbar bleiben sie, sie blinken nur nicht. */
+  @media (prefers-reduced-motion: reduce) {
+    .cl-punkte i { animation: none; opacity: .6; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1357,7 +1395,12 @@
            Verbindung besteht: Eine laufende Uhr mit "0 Teilnehmende" saehe
            aus, als liefe alles normal. -->
       <div id="connecting" style="display:none;">
+        <!-- Die Punkte zuerst: Sie sagen "es passiert etwas", noch bevor
+             man den Satz gelesen hat. Uebernommen aus meldungen.app. -->
+        <div class="cl-punkte" aria-hidden="true"><i></i><i></i><i></i></div>
         <div class="cl-connecting-text" id="connectingText">Verbinde mit dem Meeting …</div>
+        <!-- Zweite Zeile: im Regelfall die Meeting-Nummer, im Warteraum die
+             Erklaerung, worauf gewartet wird. -->
         <div class="cl-sub" id="connectingSub"></div>
       </div>
       <!-- Oben alles zur Zeit, hier unten alles zum Meeting - direkt ueber
@@ -1433,6 +1476,14 @@
     const connectingEl = document.getElementById('connecting');
     const connectingSubEl = document.getElementById('connectingSub');
     const connectingTextEl = document.getElementById('connectingText');
+    // Zweite Zeile des Verbinde-Bildschirms. Im Regelfall steht dort die
+    // Meeting-Nummer; im Warteraum die Erklaerung, worauf gewartet wird.
+    //
+    // ALS VARIABLE UND NICHT DIREKT GESETZT: render() schreibt die Zeile
+    // bei jedem Takt neu. Ein direkt gesetzter Text waere eine Sekunde
+    // spaeter wieder weg - derselbe Fallstrick, an dem der
+    // Verbinde-Hinweis schon einmal haengengeblieben ist.
+    let warteraumHinweis = '';
     const attendeesEl = document.getElementById('attendees');
     const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
@@ -1581,9 +1632,8 @@
         // Warteraum stand dort sonst "Meeting … · 0 Teilnehmende", und
         // gerade sie soll ja die Verbindung belegen.
         emptySubEl.style.display = imMeeting ? '' : 'none';
-        connectingSubEl.textContent = currentMeetingNumber
-          ? `Meeting ${currentMeetingNumber}`
-          : '';
+        connectingSubEl.textContent = warteraumHinweis
+          || (currentMeetingNumber ? `Meeting ${currentMeetingNumber}` : '');
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
         overflowEl.style.display = 'none';
@@ -2299,6 +2349,7 @@
             if (!imMeeting) {
               imMeeting = true;
               connectingTextEl.textContent = 'Verbinde mit dem Meeting …';
+              warteraumHinweis = '';
             }
           }
           hideConnectionWarning();
@@ -2442,6 +2493,10 @@
         // weiter allgemein ueber moegliche Ursachen zu spekulieren.
         if (hasEverConnected && (Date.now() - verbundenSeit) / 1000 > 5) {
           connectingTextEl.textContent = 'Im Warteraum';
+          // Dieselbe Auskunft wie im Warnbalken, nur kurz: Der Balken
+          // erklaert, dieser Satz beantwortet die Frage "und jetzt?".
+          warteraumHinweis =
+            'CueLight muss vom Host eingelassen werden.';
           showConnectionWarning(
             'CueLight wartet im Warteraum des Meetings und muss vom Host ' +
             'eingelassen werden.',
