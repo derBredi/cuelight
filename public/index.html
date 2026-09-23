@@ -862,6 +862,16 @@
       flex-wrap: wrap;
       justify-content: center;
     }
+
+    /* Laeuft die Redezeit, faellt die Teilnehmerliste weg. Auf 390px Hoehe
+       passen Uhr, Countdown, Knopfreihe UND Namen nicht untereinander -
+       der Messlauf fand die Liste beim Zustand "Redezeit kurz vor Schluss
+       mit Namen" unterhalb der Kante, ohne Scrollbereich. Der Countdown
+       ist in dem Moment die Aussage, die Namen sind es nicht. Im
+       Ruhezustand bleiben sie. */
+    #idleMain.cl-running #attendees {
+      display: none;
+    }
   }
 
   /* Platz behalten, Bedeutung abgeben. Der Unterschied zu display: none
