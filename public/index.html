@@ -3025,10 +3025,19 @@
     }
 
     setInterval(() => {
-      // Erst ab dem ersten erfolgreichen Beitritt ueberhaupt relevant -
-      // vorher ist "kein erfolgreiches Update" der normale Wartezustand,
-      // kein Stillstand.
-      if (!hasEverConnected || verlassenGewollt) return;
+      // Erst, wenn CueLight wirklich IM Meeting war - nicht schon, wenn
+      // Zoom "verbunden" meldet. hasEverConnected kippt mit dem
+      // Statusereignis, und das kommt VOR der Teilnehmerliste: im
+      // Warteraum, oder in den ersten Sekunden, bis die Liste gefuellt ist.
+      // Genau dort blitzte "Keine Aktualisierung seit 25s" auf, waehrend
+      // "Verbinde …" noch dastand. Rueckmeldung aus dem Betrieb.
+      //
+      // imMeeting kippt erst mit der ersten gefuellten Liste und danach nie
+      // zurueck - ein spaeterer Abbruch laesst die Wache also weiterhin
+      // anspringen. Vorher ist "keine Aktualisierung" kein Stillstand,
+      // sondern der normale Wartezustand, und den erklaert die zweite
+      // Zeile unter "Verbinde …".
+      if (!imMeeting || verlassenGewollt) return;
       const staleSeconds = Math.round((Date.now() - lastSuccessfulPollAt) / 1000);
       if (staleSeconds > 15 && connectionBannerEl.style.display === 'none') {
         showConnectionWarning(`Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);
