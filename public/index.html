@@ -125,6 +125,11 @@
     /* Uhr im Ruhezustand: lesbar, wenn man hinsieht - unauffaellig, wenn
        man es nicht tut. */
     --clock: #6f6f8c;
+    /* Das Gelb der Hand aus dem Logo und ihr Schein. Die einzige Farbe der
+       Anzeige, die nichts bedeutet - kein Orange (Wortmeldung), kein Gruen
+       (Mikrofon offen) - und deshalb die richtige fuer ein Ladezeichen. */
+    --hand: #f7bb37;
+    --hand-halo: rgba(247, 187, 55, 0.55);
 
     /* Einmal definiert, ueberall verwendet - vorher stand die Schrift an
        drei Stellen ausgeschrieben. */
@@ -571,11 +576,11 @@
      offen laesst: ob ueberhaupt noch etwas passiert. Ein stehender Satz
      sieht nach einer Minute aus wie ein haengender Satz.
 
-     GRAU UND NICHT BUNT: In meldungen.app tragen die Punkte die Farbe der
-     Marke - ausdruecklich, weil ein Ladezeichen keine Farbe tragen darf,
-     die auf dieser Anzeige etwas bedeutet. Hier bedeuten Orange und Gruen
-     eine Wortmeldung und ein offenes Mikrofon; die einzige Farbe ohne
-     Bedeutung ist die des Textes daneben. Also die. */
+     IM GELB DER HAND, mit ihrem Schein beim Aufleuchten - so wie das Logo
+     selbst leuchtet. In meldungen.app tragen die Punkte die Farbe der
+     Marke, aus demselben Grund: Ein Ladezeichen darf keine Farbe tragen,
+     die auf dieser Anzeige etwas bedeutet. Orange heisst hier Wortmeldung,
+     Gruen heisst offenes Mikrofon. Das Gelb der Hand heisst nichts. */
   .cl-punkte {
     display: flex;
     gap: 1.4vw;
@@ -586,17 +591,47 @@
     width: clamp(8px, 1.2vh, 14px);
     height: clamp(8px, 1.2vh, 14px);
     border-radius: 50%;
-    background: var(--muted);
+    background: var(--hand);
     animation: cl-blink 1.4s ease-in-out infinite;
   }
 
   .cl-punkte i:nth-child(2) { animation-delay: .2s; }
   .cl-punkte i:nth-child(3) { animation-delay: .4s; }
 
+  /* Deckkraft UND Schein: Am Tiefpunkt ein matter Punkt, am Hoehepunkt
+     ein leuchtender - der Schein waechst mit, statt dauerhaft zu stehen. */
   @keyframes cl-blink {
-    0%, 100% { opacity: .25; }
-    50%      { opacity: 1; }
+    0%, 100% { opacity: .25; box-shadow: 0 0 0 0 transparent; }
+    50%      { opacity: 1;   box-shadow: 0 0 10px 2px var(--hand-halo); }
   }
+
+  /* Der Notausgang aus dem Verbinden. Unterstrichener Text, kein Knopf:
+     Er soll erreichbar sein, aber nicht um Aufmerksamkeit werben - der
+     Regelfall ist, dass es von selbst weitergeht. Erscheint erst nach
+     einigen Sekunden (siehe starteBeitrittsWaechter). 44px in beiden
+     Richtungen, wie jedes Ziel; "Abbrechen" ist kurz genug, dass die
+     Breite sonst darunter fiele. Uebernommen aus meldungen.app (.zurueck). */
+  .cl-abbrechen {
+    margin-top: 1.6vh;
+    background: none;
+    border: 0;
+    color: var(--muted);
+    font: inherit;
+    font-family: var(--font);
+    font-size: clamp(13px, min(1.8vw, 2.4vh), 18px);
+    text-decoration: underline;
+    text-underline-offset: .25em;
+    cursor: pointer;
+    padding: 1vh 2vw;
+    min-height: 44px;
+    min-width: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-tap-highlight-color: transparent;
+  }
+  /* display: inline-flex wuerde das hidden-Attribut sonst aushebeln. */
+  .cl-abbrechen[hidden] { display: none; }
 
   /* Alles zusammen in der Mitte: Uhr, Countdown, Knoepfe.
 
@@ -715,7 +750,7 @@
   /* Wer weniger Bewegung wuenscht, bekommt die Punkte als ruhige Reihe -
      sichtbar bleiben sie, sie blinken nur nicht. */
   @media (prefers-reduced-motion: reduce) {
-    .cl-punkte i { animation: none; opacity: .6; }
+    .cl-punkte i { animation: none; opacity: .6; box-shadow: none; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1529,6 +1564,11 @@
         <!-- Zweite Zeile: im Regelfall die Meeting-Nummer, im Warteraum die
              Erklaerung, worauf gewartet wird. -->
         <div class="cl-sub" id="connectingSub"></div>
+        <!-- Erscheint nach ein paar Sekunden. Ohne ihn ist dieser Bildschirm
+             eine Sackgasse: Ist der Host noch nicht da, wartet CueLight zu
+             Recht endlos - nur kommt man dann nicht mehr ans Formular, und
+             in der Web-App gibt es nicht einmal eine Adresszeile. -->
+        <button class="cl-abbrechen" id="abbrechenBtn" type="button" hidden>Abbrechen</button>
       </div>
       <!-- Oben alles zur Zeit, hier unten alles zum Meeting - direkt ueber
            dem Trennstrich, unter dem die Namen stehen. -->
@@ -1603,6 +1643,7 @@
     const connectingEl = document.getElementById('connecting');
     const connectingSubEl = document.getElementById('connectingSub');
     const connectingTextEl = document.getElementById('connectingText');
+    const abbrechenBtn = document.getElementById("abbrechenBtn");
     // Zweite Zeile des Verbinde-Bildschirms. Im Regelfall steht dort die
     // Meeting-Nummer; im Warteraum die Erklaerung, worauf gewartet wird.
     //
@@ -1610,7 +1651,7 @@
     // bei jedem Takt neu. Ein direkt gesetzter Text waere eine Sekunde
     // spaeter wieder weg - derselbe Fallstrick, an dem der
     // Verbinde-Hinweis schon einmal haengengeblieben ist.
-    let warteraumHinweis = '';
+    let verbindeHinweis = '';
     const attendeesEl = document.getElementById('attendees');
     const attendeeNamesEl = document.getElementById('attendeeNames');
     const joinBtn = document.getElementById('joinBtn');
@@ -1759,7 +1800,7 @@
         // Warteraum stand dort sonst "Meeting … · 0 Teilnehmer", und
         // gerade sie soll ja die Verbindung belegen.
         emptySubEl.style.display = imMeeting ? '' : 'none';
-        connectingSubEl.textContent = warteraumHinweis
+        connectingSubEl.textContent = verbindeHinweis
           || (currentMeetingNumber ? `Meeting ${currentMeetingNumber}` : '');
         listEl.style.display = 'none';
         lowerAllBtn.style.display = 'none';
@@ -2464,19 +2505,17 @@
     // und damit die Anzeige einfrieren. Erster Tipp fragt nach, zweiter
     // fuehrt aus, nach 4s ist die Nachfrage wieder weg.
     let leaveArmed = null;
-    leaveBtn.addEventListener('click', () => {
-      if (!leaveArmed) {
-        leaveBtn.classList.add('cl-confirming');
-        leaveBtn.textContent = 'Wirklich verlassen?';
-        leaveArmed = setTimeout(() => {
-          leaveBtn.classList.remove('cl-confirming');
-          leaveBtn.innerHTML = LEAVE_ICON_SVG;
-          leaveArmed = null;
-        }, 4000);
-        return;
-      }
-      clearTimeout(leaveArmed);
-      leaveArmed = null;
+    // Ab hier ist jedes "getrennt" vom SDK die Folge unseres eigenen Tuns
+    // und kein Abbruch, auf den zu reagieren waere. Siehe den Statusempfang.
+    let verlassenGewollt = false;
+
+    // Das eigentliche Verlassen - ohne die Rueckfrage. Wird vom
+    // Verlassen-Knopf nach Bestaetigung aufgerufen und vom Abbrechen-Knopf
+    // auf dem Verbinde-Bildschirm direkt: Wer noch nicht drin ist, hat
+    // nichts zu verlieren und braucht keine Rueckfrage.
+    function verlasseMeeting() {
+      verlassenGewollt = true;
+      hideConnectionWarning();
       stopPolling();
       try {
         localStorage.setItem(PAUSED_KEY, '1');
@@ -2506,6 +2545,24 @@
           window.location.href = leaveUrl;
         },
       });
+    }
+
+    abbrechenBtn.addEventListener('click', verlasseMeeting);
+
+    leaveBtn.addEventListener('click', () => {
+      if (!leaveArmed) {
+        leaveBtn.classList.add('cl-confirming');
+        leaveBtn.textContent = 'Wirklich verlassen?';
+        leaveArmed = setTimeout(() => {
+          leaveBtn.classList.remove('cl-confirming');
+          leaveBtn.innerHTML = LEAVE_ICON_SVG;
+          leaveArmed = null;
+        }, 4000);
+        return;
+      }
+      clearTimeout(leaveArmed);
+      leaveArmed = null;
+      verlasseMeeting();
     });
 
     setInterval(render, 1000); // aktualisiert die "seit Xs"-Anzeige
@@ -2579,7 +2636,7 @@
             if (!imMeeting) {
               imMeeting = true;
               connectingTextEl.textContent = 'Verbinde mit dem Meeting …';
-              warteraumHinweis = '';
+              verbindeHinweis = '';
             }
           }
           hideConnectionWarning();
@@ -2705,13 +2762,29 @@
     let beitrittsWaechter = null;
 
     // Der Erfolgs-Rueckruf von join() kommt in zwei Faellen nie: wenn der
-    // Host noch nicht im Meeting ist und wenn das Meeting-Passwort falsch
-    // ist. Zoom meldet dann gar nichts - kein Fehler, kein Status. Deshalb
-    // ein eigener Zeitgeber, der nicht davon abhaengt, dass das SDK sich
-    // meldet.
+    // Host noch nicht im Meeting ist und wenn der Kenncode falsch ist. Zoom
+    // meldet dann gar nichts - kein Fehler, kein Status. Deshalb ein eigener
+    // Zeitgeber, der nicht davon abhaengt, dass das SDK sich meldet.
+    //
+    // KEINE WARNBALKEN MEHR WAEHREND DES VERBINDENS. Was hier zu sagen ist,
+    // steht als zweite Zeile direkt unter "Verbinde …" - dort, wo man
+    // ohnehin hinsieht - statt als Balken oben ueber einer Anzeige, die noch
+    // gar nichts zeigt. Der Balken bleibt dem Ruhebildschirm vorbehalten:
+    // Reisst DORT die Verbindung ab, sollen Uhr und Countdown stehen
+    // bleiben und der Balken sagt, was los ist.
+    const HINWEIS_NOCH_NICHT =
+      'Das Meeting ist noch nicht gestartet oder ein Warteraum ist aktiv. ' +
+      'CueLight tritt von selbst bei, sobald es losgeht.';
+    const HINWEIS_DAUERT =
+      'Es dauert länger als gewöhnlich. Häufigste Gründe: Der Host ist ' +
+      'noch nicht im Meeting, der Kenncode stimmt nicht, oder das Meeting ' +
+      'gehört zu einem anderen Zoom-Konto als dem, für das CueLight ' +
+      'freigegeben ist.';
+
     function starteBeitrittsWaechter() {
       beitrittVersuchtAb = Date.now();
       stoppeBeitrittsWaechter();
+      abbrechenBtn.hidden = true;
       beitrittsWaechter = setInterval(() => {
         if (imMeeting) {
           stoppeBeitrittsWaechter();
@@ -2723,34 +2796,18 @@
         // weiter allgemein ueber moegliche Ursachen zu spekulieren.
         if (hasEverConnected && (Date.now() - verbundenSeit) / 1000 > 5) {
           connectingTextEl.textContent = 'Im Warteraum';
-          // Dieselbe Auskunft wie im Warnbalken, nur kurz: Der Balken
-          // erklaert, dieser Satz beantwortet die Frage "und jetzt?".
-          warteraumHinweis =
+          verbindeHinweis =
             'CueLight steht im Warteraum und muss vom Host eingelassen werden.';
-          showConnectionWarning(
-            'CueLight wartet im Warteraum des Meetings und muss vom Host ' +
-            'eingelassen werden.',
-            { waiting: true }
-          );
+          abbrechenBtn.hidden = false;
           return;
         }
 
         const sekunden = (Date.now() - beitrittVersuchtAb) / 1000;
         if (sekunden < 10) return;
-        if (sekunden < 45) {
-          showConnectionWarning(
-            'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
-            { waiting: true }
-          );
-        } else {
-          showConnectionWarning(
-            'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
-            'noch nicht im Meeting, der Kenncode stimmt nicht, oder ' +
-            'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
-            'CueLight freigegeben ist.',
-            { waiting: true }
-          );
-        }
+        // Ab hier darf man raus - ohne diesen Knopf ist der Bildschirm eine
+        // Sackgasse, siehe das Markup.
+        abbrechenBtn.hidden = false;
+        verbindeHinweis = sekunden < 45 ? HINWEIS_NOCH_NICHT : HINWEIS_DAUERT;
       }, 1000);
     }
 
@@ -2877,28 +2934,28 @@
         return;
       }
 
+      // Wir gehen gerade selbst. Die Seite navigiert ohnehin zur leaveUrl;
+      // alles, was hier noch Hinweise setzt, ist nur fuer den Bruchteil
+      // einer Sekunde sichtbar und sagt dabei etwas Falsches - "Verbindung
+      // wird wiederhergestellt …" beim Verlassen war genau das. Aus
+      // meldungen.app; hier zusaetzlich auch fuer Status 4, denn das SDK
+      // meldet auf dem Weg hinaus gern erst "verbindet neu" und dann
+      // "getrennt".
+      if (verlassenGewollt) return;
+
       if (status === 1 || status === 3) {
         if (!hasEverConnected) {
           // Noch nie verbunden gewesen: ganz normal, wenn das Meeting noch
           // nicht gestartet ist oder ein Warteraum aktiv ist - deshalb
-          // erstmal neutral formulieren, nicht wie ein Fehler.
+          // neutral formulieren, nicht wie ein Fehler. Und als zweite Zeile
+          // unter "Verbinde …", nicht als Balken (siehe Beitrittswaechter).
           const secondsSinceJoin = (Date.now() - beitrittVersuchtAb) / 1000;
-          if (secondsSinceJoin < 45) {
-            showConnectionWarning(
-              'Warte auf Beitritt … (Meeting evtl. noch nicht gestartet, oder Warteraum aktiv)',
-              { waiting: true }
-            );
-          } else {
-            showConnectionWarning(
-              'Warte weiterhin auf Beitritt. Häufigste Gründe: Der Host ist ' +
-              'noch nicht im Meeting, der Kenncode stimmt nicht, oder ' +
-              'das Meeting gehört zu einem anderen Zoom-Konto als dem, für das ' +
-              'CueLight freigegeben ist.',
-              { waiting: true }
-            );
-          }
+          verbindeHinweis = secondsSinceJoin < 45 ? HINWEIS_NOCH_NICHT : HINWEIS_DAUERT;
+          abbrechenBtn.hidden = false;
         } else {
           // War schon mal verbunden, jetzt weg - das ist ein echter Abbruch.
+          // HIER bleibt der Balken: Auf dem Ruhebildschirm sollen Uhr und
+          // Countdown stehen bleiben, und der Balken sagt, was los ist.
           showConnectionWarning('Verbindung getrennt');
         }
         return;
@@ -2911,7 +2968,7 @@
       // Erst ab dem ersten erfolgreichen Beitritt ueberhaupt relevant -
       // vorher ist "kein erfolgreiches Update" der normale Wartezustand,
       // kein Stillstand.
-      if (!hasEverConnected) return;
+      if (!hasEverConnected || verlassenGewollt) return;
       const staleSeconds = Math.round((Date.now() - lastSuccessfulPollAt) / 1000);
       if (staleSeconds > 15 && connectionBannerEl.style.display === 'none') {
         showConnectionWarning(`Keine Aktualisierung seit ${staleSeconds}s - Verbindung prüfen`);
