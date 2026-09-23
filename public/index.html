@@ -918,10 +918,17 @@
          dreimal 46% nicht nebeneinander passen. Auf schmalen Geraeten
          greift stattdessen die Untergrenze von 360px. */
       grid-template-columns: repeat(auto-fit, minmax(max(360px, 46%), 1fr));
-      /* 1fr statt min-content: Die Zeilen teilen sich die verfuegbare
-         Hoehe, die Kacheln fuellen den Bildschirm also aus statt oben zu
-         kleben. Bei zwei Meldungen stand vorher das untere Drittel leer. */
-      grid-auto-rows: 1fr;
+      /* Die Zeilen wachsen mit, aber nur bis 26vh.
+         GEMESSEN UND ZURUECKGENOMMEN: Ohne Obergrenze (grid-auto-rows:
+         1fr) fuellen die Kacheln die Hoehe vollstaendig aus - eine
+         einzelne Meldung wird dann ein bildschirmfuellender gruener
+         Block. Auf der Aufnahme war das nicht besser, sondern nur laut.
+         Schwerer wiegt aber: Jede neue Meldung haette alle Kacheln neu
+         bemessen, mitsamt der Schrift darin. Auf dieser Anzeige bedeutet
+         Bewegung "jemand meldet sich" - ein Bildschirm, der bei jeder
+         Meldung komplett neu aufbaut, verbraucht genau dieses Signal.
+         26vh nutzen den leeren Platz, ohne ihn zur Regel zu machen. */
+      grid-auto-rows: minmax(min-content, 26vh);
       /* Spaltenabstand mindestens 26px, damit sich die Scheine zweier
          nebeneinanderliegender Kacheln nicht beruehren. */
       gap: 2vh max(2vw, 26px);
@@ -1164,52 +1171,13 @@
     }
   }
 
-  /* Im Hochformat teilen sich die Kacheln die Hoehe genauso. Dort ist
-     #list eine Spalte statt eines Rasters, das macht also flex statt 1fr. */
+  /* Im Hochformat wachsen die Kacheln genauso mit, bis zur gleichen
+     Obergrenze. Dort ist #list eine Spalte statt eines Rasters, das macht
+     also flex-grow statt grid-auto-rows - die Begruendung fuer die
+     Obergrenze steht oben bei #list im Querformat. */
   #list > .cl-row {
-    flex: 1 1 0;
-  }
-
-  /* --- Die Schrift wird an der KACHEL gemessen, nicht am Bildschirm ----
-     Sobald die Kacheln die Hoehe fuellen, sagt die Bildschirmhoehe nichts
-     mehr darueber, wie viel Platz eine Kachel hat: Eine Meldung bekommt
-     den ganzen Streifen, sieben teilen ihn. Ohne diese Regel waere eine
-     einzelne Meldung ein riesiger Balken mit kleiner Schrift darin.
-
-     DIESER BLOCK STEHT BEWUSST AM ENDE, hinter den Querformat-Regeln. Bei
-     gleicher Spezifitaet gewinnt die spaetere Regel - weiter oben haette
-     ihn der Querformat-Block ueberschrieben, und im Querformat, also
-     ausgerechnet auf dem Pultgeraet, waere er wirkungslos geblieben.
-     Genau daran ist der erste Versuch gescheitert.
-
-     Die bildschirmbezogenen Masse bleiben alle stehen: Ein Browser ohne
-     Container-Abfragen ignoriert cqh und behaelt sie. */
-  .cl-row {
-    container-type: size;
-  }
-
-  @supports (font-size: 1cqh) {
-    /* NUR DER NAME, und begrenzt durch die BREITE der Kachel.
-       Zwei Lehren aus einem Lauf, der 56 Befunde brachte statt 8:
-
-       1. Symbol und Wartezeit durften mitwachsen. Auf einer hohen Kachel
-          wurde das Mikrofon dreimal so gross, und zusammen mit der
-          Wartezeit frass es die Breite, die der Name braucht - bei drei
-          Meldungen blieben ihm 204 von 493 Pixeln. Beide bleiben deshalb
-          bei ihrem bildschirmbezogenen Mass.
-
-       2. Die Hoehe allein ist der falsche Massstab. Eine hohe Kachel darf
-          keine Schrift bekommen, die breiter ist als die Kachel selbst -
-          sonst werden ausgerechnet gewoehnliche Namen abgeschnitten.
-          7cqw ist die Grenze: Sie haelt die Schrift in einem Verhaeltnis
-          zur Breite, in dem ein normaler Name Platz hat.
-
-       cqh bleibt trotzdem drin, aber als Untergrenze gedacht: Teilen sich
-       sieben Meldungen einen Telefonbildschirm, soll die Schrift
-       schrumpfen und nicht aus der Kachel ragen. */
-    .cl-row .cl-name {
-      font-size: clamp(24px, min(34cqh, 7cqw), 72px);
-    }
+    flex: 1 1 auto;
+    max-height: 26vh;
   }
 
   /* Meldungen ohne alert(): ein alert() blockiert den JS-Thread, damit
