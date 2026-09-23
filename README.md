@@ -112,6 +112,21 @@ starten, der erst beim Beitritt scheitert.
 `docker-compose.yml` einfügen, unter *Environment variables* dieselben
 Namen wie in der `.env.example` eintragen, *Deploy*.
 
+**Läuft `cloudflared` selbst als Container** – etwa im selben Docker wie
+meldungen.app –, dann ist `localhost:4000` aus seiner Sicht der
+Tunnel-Container und nicht der Rechner; Cloudflare meldet dann 502. In
+dem Fall CueLight in das Netz des Tunnels hängen:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+```
+
+mit `TUNNEL_NETZ` in der `.env` (der Name des Docker-Netzes, in dem der
+Tunnel steht). In Portainer stattdessen die beiden Blöcke aus
+`docker-compose.tunnel.yml` in den Stack übernehmen. Als Public Hostname
+im Zero-Trust-Dashboard steht dann `cuelight:4000` – der Containername,
+kein `localhost`.
+
 **Läuft alles?** `docker compose logs cuelight | head -20` – ganz oben
 steht eine Selbstprüfung, die in ganzen Sätzen sagt, was noch fehlt.
 `[FEHLT]` muss erledigt werden, `[Hinweis]` ist eine Entscheidung, kein

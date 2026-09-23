@@ -1,0 +1,32 @@
+# Ergaenzung fuer einen Cloudflare Tunnel, der SELBST als Container laeuft.
+#
+#   docker compose -f docker-compose.yml -f docker-compose.tunnel.yml up -d
+#
+# In Portainer: die beiden Bloecke unten in den Stack uebernehmen.
+#
+# WARUM ES DIESE DATEI GIBT: Die docker-compose.yml bindet CueLight an
+# 127.0.0.1:4000 - absichtlich, damit kein Port nach aussen offen steht.
+# Laeuft cloudflared aber als Container, ist "localhost:4000" aus dessen
+# Sicht der Tunnel-Container selbst, nicht der Rechner. Die Folge ist ein
+# 502 von Cloudflare, obwohl CueLight laeuft.
+#
+# Der Weg: CueLight in DAS Docker-Netz haengen, in dem der Tunnel schon
+# steht. Dann erreicht cloudflared den Container ueber seinen Namen, ganz
+# ohne Host-Port - so, wie meldungen.app auf demselben Rechner angebunden
+# ist. Als Public Hostname im Zero-Trust-Dashboard steht dann:
+#
+#   Typ HTTP, URL  cuelight:4000
+#
+# Der Netzname kommt aus der .env (TUNNEL_NETZ), weil er von Rechner zu
+# Rechner verschieden ist. Auf dem Pi, auf dem auch meldungen.app laeuft,
+# heisst er "mldgn_net".
+
+services:
+  cuelight:
+    networks:
+      - tunnel
+
+networks:
+  tunnel:
+    name: ${TUNNEL_NETZ:?In der .env eintragen - der Name des Docker-Netzes, in dem cloudflared laeuft}
+    external: true
