@@ -868,8 +868,14 @@
        der Messlauf fand die Liste beim Zustand "Redezeit kurz vor Schluss
        mit Namen" unterhalb der Kante, ohne Scrollbereich. Der Countdown
        ist in dem Moment die Aussage, die Namen sind es nicht. Im
-       Ruhezustand bleiben sie. */
-    #idleMain.cl-running #attendees {
+       Ruhezustand bleiben sie.
+
+       MIT ~ UND NICHT ALS NACHFAHRE: #attendees ist kein Kind von
+       #idleMain, sondern dessen Geschwister in #empty-state. Der erste
+       Versuch stand als Nachfahren-Selektor da, traf nie, und der
+       Messlauf meldete den Befund unveraendert - so hat er die Regel
+       gleich mitgeprueft. */
+    #idleMain.cl-running ~ #attendees {
       display: none;
     }
   }
