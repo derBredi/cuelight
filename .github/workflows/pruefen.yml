@@ -29,10 +29,20 @@ jobs:
         with:
           node-version: '22'
 
-      # KEIN npm install: Die Tests pruefen eigene Rechnungen und brauchen
-      # kein einziges fremdes Paket. Das haelt den Lauf bei wenigen
-      # Sekunden und macht ihn unabhaengig davon, ob gerade eine
-      # Abhaengigkeit im Netz erreichbar ist.
+      # EIN Paket, und zwar nur fuer die Tests.
+      #
+      # oberflaeche-verhalten.test.js laedt public/index.html wirklich und
+      # fuehrt ihr Skript aus; dafuer braucht es einen DOM. Es steht
+      # bewusst nicht in den dependencies: Die Anwendung selbst benutzt es
+      # nie, und "npm ci --omit=dev" im Dockerfile wuerde es ohnehin nicht
+      # mitnehmen. Mit --no-save bleibt auch package.json unberuehrt.
+      #
+      # Die vier Abhaengigkeiten des Servers werden weiterhin NICHT
+      # geholt: Die uebrigen Tests pruefen eigene Rechnungen und kommen
+      # ohne sie aus.
+      - name: jsdom fuer die Dauer des Laufs
+        run: npm install --no-save jsdom
+
       - name: Tests
         run: npm test
 
