@@ -2144,7 +2144,19 @@
 
       // Auf dem Board nur, wenn dort auch Kacheln stehen - im Ruhezustand
       // waere es dieselbe Zahl zweimal.
-      boardTimerEl.style.display = laeuft && raisedHands.size > 0 ? '' : 'none';
+      //
+      // visibility und NICHT display: Der Platz bleibt stehen. Mit
+      // display:none fiel er weg, und das Layout sprang jedesmal, wenn die
+      // Zeitanzeige kam oder ging - im Betrieb aufgefallen. Auf einer
+      // Buehne bedeutet Bewegung "jemand meldet sich"; ein Ruck aus einem
+      // anderen Grund kostet den Redner einen Blick.
+      //
+      // meldungen.app hat es von Anfang an so gehalten. Dass CueLight
+      // abwich, ist erst beim Aufbau des Abgleichs zwischen den beiden
+      // aufgefallen (meldungen-app/app/test/abgleich-cuelight.test.js) -
+      // vorher hat es niemand nebeneinandergelegt.
+      boardTimerEl.style.visibility =
+        laeuft && raisedHands.size > 0 ? '' : 'hidden';
     }
 
     // Eine Minute mehr oder weniger. Verschoben wird die GRENZE, nicht der
