@@ -19,6 +19,13 @@
 // nicht benutzt; sie ist die Stelle, an der steht, was gebraucht wird -
 // und dieser Test haelt sie mit der README zusammen.
 //
+// NACHTRAG VOM SELBEN TAG: Die Scopes stehen inzwischen im optionalen
+// README-Abschnitt "OAuth fuer fremde Konten", nicht mehr in der
+// Einrichtung. Fuer Meetings des eigenen Zoom-Kontos genuegt die
+// Signatur, OAuth wird gar nicht gebraucht - siehe
+// docs/recherche-zoom-beitritt-ohne-oauth.md. Der Test bleibt trotzdem:
+// Wer den seltenen Weg geht, soll dort nicht in dieselbe Falle laufen.
+//
 // WAS ER NICHT KANN: Er fragt Zoom nicht. Ob `user:read:user` bei Zoom
 // wirklich so heisst und wirklich fuer /users/me verlangt wird, steht
 // hier nicht zur Debatte - das ist belegt und in server.js begruendet.

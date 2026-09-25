@@ -84,17 +84,20 @@ die Meetings laufen – CueLight kann nur Meetings dieses Kontos beitreten.
 1. Auf [marketplace.zoom.us](https://marketplace.zoom.us) anmelden.
 2. **Develop → Build App → General App** anlegen.
 3. Unter **Features → Embed** das **Meeting SDK** einschalten.
-4. Unter **Scopes** **beide** Einträge hinzufügen – einer allein genügt
-   nicht:
-   - `user:read:user` – damit CueLight prüfen kann, wer die Freigabe
-     erteilt. Fehlt er, bricht die Freigabe mit *„Zoom-Konto konnte nicht
-     überprüft werden"* ab und wird nicht gespeichert.
-   - `user:read:token` – damit CueLight dem Meeting beitreten kann.
-5. Als **Redirect-URL** deine Adresse mit `/oauth/callback` am Ende
-   eintragen: `https://deine-domain.de/oauth/callback`.
-6. Unter **App Credentials** stehen **Client ID** und **Client Secret**.
+4. Unter **App Credentials** stehen **Client ID** und **Client Secret**.
 
-Die App muss nicht veröffentlicht werden.
+Das war es. Keine Scopes, keine Redirect-URL, keine Freigabe – solange
+die Meetings in demselben Zoom-Konto laufen, in dem du diese App anlegst.
+Zoom sagt das selbst: Für den Beitritt zu einem Meeting *„within the app
+owner's account"* genügt die Signatur, die CueLight aus Client ID und
+Secret bildet. Veröffentlicht werden muss die App nicht.
+
+> **Meetings aus einem fremden Zoom-Konto?** Dann braucht es zusätzlich
+> eine Freigabe über OAuth – *und* eine Prüfung der App durch Zoom, die
+> Wochen dauert und begründet werden will. Der Weg ist in
+> [OAuth für fremde Konten](#oauth-für-fremde-konten-der-seltene-fall)
+> beschrieben. Für den Normalfall – eine Versammlung, ein Zoom-Konto –
+> überspring ihn.
 
 ### 2. CueLight starten
 
@@ -147,9 +150,8 @@ Fehler.
 ### 3. Beitreten
 
 Auf dem Anzeigegerät die Adresse öffnen – vollständig mit `https://`
-davor –, die Meeting-ID eintragen und auf **Beitreten** tippen. Beim
-allerersten Mal schickt dich ein Knopf zu Zoom: Dort gibst du CueLight
-einmal frei, das gilt danach dauerhaft.
+davor –, die Meeting-ID eintragen und auf **Beitreten** tippen. Mehr ist
+es nicht; CueLight tritt still als Teilnehmer bei.
 
 Meeting-ID, Kenncode und Anzeigename merkt sich CueLight auf dem Gerät.
 Legst du die Seite auf den Startbildschirm, ist sie beim nächsten
@@ -212,9 +214,41 @@ Passwort.
 - **Etwas anderes klemmt.** Die Seite mit `?debug=1` öffnen: Dann zeigt
   CueLight Fehler direkt auf dem Bildschirm, auch auf einem Tablet ohne
   Rechner. Damit bitte ein Issue aufmachen.
-- **Anderes Zoom-Konto nötig?** Im Aufklapper unter dem Formular:
-  **Freigabe zurücksetzen**. Gehört die Zoom-App selbst zu einem anderen
-  Konto, brauchst du dort eine neue App und neue Werte in der `.env`.
+- **Die Meetings laufen jetzt in einem anderen Zoom-Konto.** Dann gehört
+  die App in dieses Konto: dort eine neue anlegen (Schritt 1) und die
+  neuen Werte in die `.env`. Eine bereits erteilte OAuth-Freigabe räumt
+  **Freigabe zurücksetzen** im Aufklapper weg.
+
+## OAuth für fremde Konten – der seltene Fall
+
+**Überspring diesen Abschnitt**, wenn die Meetings in demselben
+Zoom-Konto laufen, in dem du die App angelegt hast. Das ist der
+Normalfall, und dann ist hier nichts zu tun.
+
+Soll CueLight einem Meeting beitreten, das einem **anderen** Zoom-Konto
+gehört, verlangt Zoom zweierlei – und beides, nicht nur eines davon:
+
+1. Eine **Prüfung der App durch Zoom**. Eine unveröffentlichte App kommt
+   in fremde Meetings gar nicht hinein.
+2. Seit dem 2. März 2026 zusätzlich einen **OBF-Token**. Den holt sich
+   CueLight über OAuth, und dafür braucht die Zoom-App:
+   - unter **Scopes** beide Einträge – einer allein genügt nicht:
+     `user:read:user` (damit CueLight prüfen kann, wer freigibt; fehlt er,
+     bricht die Freigabe mit *„Zoom-Konto konnte nicht überprüft werden"*
+     ab) und `user:read:token` (der Token selbst);
+   - als **Redirect-URL** deine Adresse mit `/oauth/callback` am Ende:
+     `https://deine-domain.de/oauth/callback`.
+
+   Danach im Aufklapper unter dem Formular auf **Bei Zoom freigeben** –
+   mit dem Konto anmelden, dem die Meetings gehören.
+
+Weil Schritt 1 an Zoom hängt und nicht an dir, ist das kein Weg, den man
+mal eben geht. Für eine Versammlung mit einem Zoom-Konto ist er auch
+nicht nötig.
+
+Die vollständige Beleglage – welcher Token wofür da ist, was Zoom
+dokumentiert und was ausdrücklich *nicht* belegt ist – steht in
+[docs/recherche-zoom-beitritt-ohne-oauth.md](docs/recherche-zoom-beitritt-ohne-oauth.md).
 
 ## Mitmachen
 

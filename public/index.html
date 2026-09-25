@@ -1507,23 +1507,6 @@
     <button id="joinBtn">Beitreten</button>
     <p id="compatWarning" style="display:none;"></p>
 
-    <!-- Wird eingeblendet, solange kein Zoom-Konto freigegeben ist. Ein
-         echter Link statt window.open: Safari und iOS blockieren
-         automatisch geoeffnete Fenster, ein Antippen aber nie. -->
-    <div id="authNeeded" style="display:none;">
-      <p>
-        Noch kein Zoom-Konto freigegeben. Das ist einmalig nötig, damit
-        CueLight Meetings beitreten darf.
-      </p>
-      <a id="authLink" class="cl-authbtn" target="_blank" rel="noopener">
-        Jetzt bei Zoom freigeben
-      </a>
-      <p class="cl-hint">
-        Mit dem Konto anmelden, das die Meetings hostet. Danach hierher
-        zurück und „Beitreten".
-      </p>
-    </div>
-
     <details>
       <summary>Lesezeichen-Link und Zoom-Freigabe</summary>
 
@@ -1538,7 +1521,38 @@
         nur das Formular vor.
       </p>
 
+      <!-- Die Zoom-Freigabe steht hinter dem Aufklapper, und das ist eine
+           Korrektur.
+           Bis zum 25.09.2026 erschien dieser Block bei JEDEM, der noch
+           nicht freigegeben hatte, direkt unter dem Beitreten-Knopf - mit
+           dem Satz "Das ist einmalig noetig, damit CueLight Meetings
+           beitreten darf". Der stimmte nicht. Zooms eigene Regel lautet:
+           Tritt die App einem Meeting IM EIGENEN Konto bei, genuegt die
+           Signatur, "no change is needed". Und im eigenen Konto liegt das
+           Meeting immer - die Anleitung setzt das seit jeher voraus.
+           Der Block hat also alle zu einem Umweg geschickt, den fast
+           niemand braucht, und auf dem Weg dorthin gibt es Fehler
+           (fehlender Scope, falsche Redirect-URL), die wie ein Defekt der
+           Anwendung aussehen. Ein echter Link statt window.open bleibt:
+           Safari und iOS blockieren automatisch geoeffnete Fenster. -->
       <label>Zoom-Freigabe</label>
+      <p id="authStatus" class="cl-hint">Freigabe wird geprüft …</p>
+      <div id="authNeeded">
+        <p>
+          <strong>Für Meetings des eigenen Zoom-Kontos nicht nötig.</strong>
+          Gebraucht wird die Freigabe nur, um Meetings eines
+          <em>fremden</em> Kontos beizutreten – und dafür verlangt Zoom
+          zusätzlich eine Prüfung der App.
+        </p>
+        <a id="authLink" class="cl-authbtn" target="_blank" rel="noopener">
+          Bei Zoom freigeben
+        </a>
+        <p class="cl-hint">
+          Mit dem Konto anmelden, das die Meetings hostet. Danach hierher
+          zurück und „Beitreten".
+        </p>
+      </div>
+
       <button id="resetAuthBtn" type="button">Freigabe zurücksetzen</button>
       <p class="cl-hint">
         Hebt die Freigabe des Zoom-Kontos auf, damit ein anderes Konto
@@ -2935,12 +2949,26 @@
     }
 
     // --- Zoom-Freigabe ----------------------------------------------------
-    const authNeededEl = document.getElementById('authNeeded');
+    const authStatusEl = document.getElementById('authStatus');
     const authLinkEl = document.getElementById('authLink');
 
+    /**
+     * Den Weg zur Zoom-Freigabe bereitlegen.
+     *
+     * Setzt nur die Adresse - der Block selbst steht dauerhaft im
+     * Aufklapper und wird nicht mehr ein- und ausgeblendet. Frueher hiess
+     * diese Funktion, was ihr Name sagt: Sie schob den Freigabe-Kasten
+     * unter den Beitreten-Knopf, sobald keine Freigabe vorlag. Das war bei
+     * fast jeder Instanz der Fall und fast nie noetig.
+     *
+     * Bewusst klappt hier auch nichts automatisch auf, wenn ein Beitritt
+     * scheitert: Der haeufigste Grund dafuer ist eine vertippte
+     * Meeting-ID, und wer dann zur Zoom-Freigabe geschickt wird, sucht an
+     * der falschen Stelle. Die Fehlermeldung nennt die Bedingung, auf die
+     * es ankommt; wer sie braucht, findet den Weg im Aufklapper.
+     */
     function showAuthNeeded(serverUrl) {
       authLinkEl.href = `${serverUrl.replace(/\/$/, '')}/oauth/authorize`;
-      authNeededEl.style.display = 'block';
     }
 
     // Zwei Stufen wie beim Verlassen-Knopf: Ein versehentlicher Tipp soll
@@ -2978,11 +3006,13 @@
         const res = await fetch(`${serverUrl.replace(/\/$/, '')}/oauth/status`);
         if (!res.ok) return;
         const data = await res.json();
-        if (data.authorized) {
-          authNeededEl.style.display = 'none';
-        } else {
-          showAuthNeeded(serverUrl);
-        }
+        // Immer nur berichten, nie auffordern: "nicht freigegeben" ist der
+        // Normalzustand einer Instanz, die Meetings des eigenen Kontos
+        // bedient, und kein offener Posten.
+        showAuthNeeded(serverUrl);
+        authStatusEl.textContent = data.authorized
+          ? `Freigegeben${data.account ? ' für ' + data.account : ''}.`
+          : 'Nicht freigegeben – für Meetings des eigenen Kontos genügt das.';
       } catch (err) {
         log('Freigabe-Status nicht abrufbar:', err);
       }
@@ -3222,17 +3252,19 @@
           const body = await obfRes.json().catch(() => ({}));
           console.error('OBF-Token-Fehler:', body);
           if (body.error === 'not_authorized') {
-            // Kein window.open: das blockieren Safari und iOS zuverlaessig,
-            // und dann steht nur noch eine URL zum Abtippen da. Stattdessen
-            // erscheint ein Knopf direkt im Formular - als Angebot, nicht
-            // als Sperre.
+            // KEINE Meldung. Das hier ist der Normalfall.
+            //
+            // Frueher stand an dieser Stelle ein zwoelf Sekunden langer
+            // Hinweis, der zur Zoom-Freigabe schickte. Er erschien bei
+            // jedem Beitritt jeder Instanz, die keine Freigabe hat - also
+            // bei praktisch allen, denn fuer Meetings des eigenen Kontos
+            // genuegt die Signatur. Ein Hinweis, der immer erscheint und
+            // fast nie zutrifft, erzieht dazu, Hinweise zu ueberlesen.
+            //
+            // Die Adresse wird trotzdem gesetzt: Scheitert der Beitritt
+            // gleich darauf wirklich, klappt der Aufklapper auf und der
+            // Weg liegt bereit.
             showAuthNeeded(serverUrl);
-            toast(
-              'Ohne Zoom-Freigabe versuche ich es nur mit der Signatur. ' +
-              'Bei einem Meeting aus einem fremden Zoom-Konto reicht das ' +
-              'nicht - der Knopf zum Freigeben steht unten im Formular.',
-              { ms: 12000 }
-            );
           }
         }
       } catch (err) {
@@ -3348,8 +3380,8 @@
                   ? 'Der freigegebene Zoom-Nutzer ist noch nicht im Meeting. ' +
                     'Kurz warten und erneut starten.'
                   : 'Beitritt fehlgeschlagen' + (detail ? ` (${detail})` : '') +
-                    '. Stimmen Meeting-ID und Kenncode, und gehoert das ' +
-                    'Meeting zum freigegebenen Zoom-Konto?',
+                    '. Stimmen Meeting-ID und Kenncode, und laeuft das ' +
+                    'Meeting in dem Zoom-Konto, in dem die App angelegt ist?',
                 { error: true, ms: 15000 }
               );
               setupEl.style.display = '';
