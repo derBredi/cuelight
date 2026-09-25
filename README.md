@@ -6,7 +6,7 @@
 
 [![Docker-Image veröffentlichen](https://github.com/derbredi/cuelight/actions/workflows/publish.yml/badge.svg)](https://github.com/derbredi/cuelight/actions/workflows/publish.yml)
 
-**Wer sich aus Zoom meldet, steht groß auf dem Pult. Dazwischen ist
+**Hebt jemand in Zoom die Hand, steht sein Name groß vor dir. Dazwischen ist
 derselbe Bildschirm deine Uhr.**
 
 <p align="center">
