@@ -38,8 +38,9 @@ grüner Punkt steht für ein offenes Mikrofon.
   <img src="assets/uhr.png" width="760" alt="Die Anzeige zeigt groß die Uhrzeit. Darunter „Stoppuhr und Timer“ mit den Werten 3, 5, 10, 15 und 30 und einem Start-Knopf, ganz unten die Namen aus dem Meeting." />
 </p>
 
-Eine **Zahl** startet einen Countdown über so viele Minuten, **Start**
-zählt einfach hoch. In der letzten Minute wird die Anzeige orange, bei
+**Die Zahlen sind Minuten** – tippst du auf 10, läuft die Zeit von zehn
+Minuten rückwärts. **Start** zählt stattdessen hoch, ohne Ende.
+In der letzten Minute wird die Anzeige orange, bei
 null zählt sie den Überzug hoch, und eine Minute später räumt sie sich
 selbst weg – damit der nächste Redner nicht die Zeit des vorherigen
 vorfindet.
