@@ -84,7 +84,12 @@ die Meetings laufen – CueLight kann nur Meetings dieses Kontos beitreten.
 1. Auf [marketplace.zoom.us](https://marketplace.zoom.us) anmelden.
 2. **Develop → Build App → General App** anlegen.
 3. Unter **Features → Embed** das **Meeting SDK** einschalten.
-4. Unter **Scopes** den Eintrag `user:read:token` hinzufügen.
+4. Unter **Scopes** **beide** Einträge hinzufügen – einer allein genügt
+   nicht:
+   - `user:read:user` – damit CueLight prüfen kann, wer die Freigabe
+     erteilt. Fehlt er, bricht die Freigabe mit *„Zoom-Konto konnte nicht
+     überprüft werden"* ab und wird nicht gespeichert.
+   - `user:read:token` – damit CueLight dem Meeting beitreten kann.
 5. Als **Redirect-URL** deine Adresse mit `/oauth/callback` am Ende
    eintragen: `https://deine-domain.de/oauth/callback`.
 6. Unter **App Credentials** stehen **Client ID** und **Client Secret**.

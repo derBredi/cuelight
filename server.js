@@ -511,6 +511,36 @@ async function refreshAccessToken(tokens) {
   return updated.access_token;
 }
 
+// --- Welche Zoom-Scopes diese Anwendung braucht --------------------------
+//
+// Die Liste wird hier NICHT benutzt - die Scopes stellt man in der eigenen
+// Zoom-App unter "Scopes" ein, und der authorize-Aufruf unten schickt
+// keinen scope-Parameter mit, weil Zoom dann die der App nimmt.
+//
+// Sie steht trotzdem hier, weil sie sonst nirgends stuende: Bis zum
+// 25.09.2026 nannte allein die README einen einzigen Scope, und der war
+// unvollstaendig. Wer der Anleitung folgte, bekam beim Freigeben einen
+// 502 mit "Zoom-Konto konnte nicht ueberprueft werden" und keinen Hinweis
+// darauf, was fehlt. test/zoom-scopes.test.js haelt diese Liste und die
+// README ab jetzt beieinander.
+//
+// ES SIND ZWEI AUFRUFE, und jeder braucht seinen eigenen:
+//
+//   user:read:user   GET /v2/users/me
+//                    Wer hat da freigegeben? Ohne diese Antwort wird die
+//                    Freigabe NICHT gespeichert - das ist Absicht und
+//                    keine Kuer: Ohne verifiziertes Konto liesse sich
+//                    eine bestehende Bindung umgehen, indem man den
+//                    Abruf scheitern laesst.
+//
+//   user:read:token  GET /v2/users/me/token?type=onbehalf&meeting_id=...
+//                    Das Token, mit dem die Anzeige dem Meeting als
+//                    dieser Host beitritt. Ohne das kein Beitritt.
+//
+// Ein einzelner Scope reicht also in keinem Fall: Der eine holt die
+// Freigabe herein, der andere benutzt sie.
+const ZOOM_SCOPES = ['user:read:user', 'user:read:token'];
+
 // --- 1) Meeting-Host startet hier die einmalige Freigabe -----------------
 app.get('/oauth/authorize', requireAdmin, (req, res) => {
   if (!CLIENT_ID) {
