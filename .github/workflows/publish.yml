@@ -32,6 +32,46 @@ jobs:
       - name: Code auschecken
         uses: actions/checkout@v4
 
+      # Nennen docker-compose.yml und package.json dieselbe Fassung, die
+      # hier gebaut wird?
+      #
+      # WARUM ES DIESEN SCHRITT GIBT, und zwar aus dem Nachbarprojekt
+      # gelernt: Bei meldungen.app stand in der Compose-Datei monatelang
+      # eine alte Fassung, waehrend neue getaggt wurden. "docker compose
+      # pull" holte damit brav immer wieder die alte - und weil dort die
+      # Seiten ausserhalb des Images liegen, lief eine neue Oberflaeche vor
+      # einem alten Dienst. Gemerkt hat es niemand, bis etwas fehlschlug.
+      #
+      # Hier stimmen die Nummern bisher nur deshalb, weil jemand daran
+      # gedacht hat. Das ist keine Wache, das ist Glueck.
+      #
+      # Der Riegel steht VOR dem Bauen: Ein Image, dessen Compose-Datei
+      # woanders hinzeigt, soll gar nicht erst entstehen.
+      - name: Fassungsnummern muessen zum Tag passen
+        run: |
+          # Der Tag heisst v1.3.13, die Dateien nennen 1.3.13.
+          fassung="${GITHUB_REF_NAME#v}"
+          klagen=0
+
+          if ! grep -qF "image: ghcr.io/derbredi/cuelight:${fassung}" docker-compose.yml; then
+            echo "::error title=Compose-Datei veraltet::docker-compose.yml nennt nicht ${fassung}."
+            grep -n "cuelight:" docker-compose.yml || true
+            klagen=1
+          fi
+
+          if ! grep -qF "\"version\": \"${fassung}\"" package.json; then
+            echo "::error title=package.json veraltet::package.json nennt nicht ${fassung}."
+            grep -n '"version"' package.json || true
+            klagen=1
+          fi
+
+          if [ "$klagen" -ne 0 ]; then
+            echo ""
+            echo "Beide Nummern gehoeren VOR den Tag angehoben und mit committet."
+            exit 1
+          fi
+          echo "docker-compose.yml und package.json nennen ${fassung}."
+
       - name: QEMU einrichten (für Multi-Arch-Build)
         uses: docker/setup-qemu-action@v3
 
