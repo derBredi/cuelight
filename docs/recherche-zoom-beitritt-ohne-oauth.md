@@ -248,6 +248,65 @@ Alles darüber hinaus — OAuth-Fluss, Redirect-URL, Scopes, Freigabe durch den 
 
 ---
 
+## Frage 6 — Ginge es ganz ohne Beitritt? Webhooks und Server-to-Server
+
+Nachgetragen am 28.09.2026. Die Frage kam auf, weil der Zoom-Marketplace
+neben der **General App** zwei weitere Formen anbietet, die eine
+Versammlung **in ihrem eigenen Konto** anlegen kann — also ohne Prüfung
+durch Zoom, ohne Veröffentlichung, ohne Wartezeit. Wenn eine davon
+genügte, entfiele die ganze Kette aus Signatur, Beitritt und Zugangsdaten.
+
+### Server-to-Server OAuth App
+
+Gibt einem Server Zugriff auf **sein eigenes** Konto: Konto-ID, Client ID
+und Client Secret ergeben direkt ein Token, ohne Benutzer, ohne Zustimmung,
+ohne Rückkehr-Adresse.
+
+**Hilft nicht.** Sie liefert keine Meeting-SDK-Zugangsdaten. Ohne die gibt
+es keine Signatur, und ohne Signatur lässt das Meeting SDK niemanden
+hinein — siehe Frage 1 und 2 oben.
+
+### Webhook Only App
+
+Nimmt ausschließlich Ereignisse entgegen: eine Adresse, ein Secret Token,
+und Zoom meldet, was im Konto passiert. Das wäre der eigentlich
+interessante Weg: Käme „Hand gehoben" als Ereignis herein, bräuchte die
+Anzeige das SDK überhaupt nicht mehr — kein Beitritt, kein Teilnehmer in
+der Liste, keine Zugangsdaten, kein Warteraum.
+
+**Es gibt dieses Ereignis nicht.** Zoom veröffentlicht den Zustand
+gehobener Hände weder als Webhook noch über die REST-API:
+
+- Die Anfrage danach steht seit dem **3. Mai 2023** als *Feature Request*
+  im Entwicklerforum — mit Zustimmung anderer Entwickler bis Dezember 2024
+  und ohne eine einzige Antwort von Zoom. Der Autor nennt genau die drei
+  Formen, die fehlen: Webhooks für Heben und Senken, ein Feld an der
+  Teilnehmerliste, ein eigener Endpunkt.
+  <https://devforum.zoom.us/t/reaction-retrieval-from-the-api-or-a-web-hook-raise-hand-clap-etc/87781>
+- Ein Zoom-Mitarbeiter hatte das bereits 2020 in einem anderen Faden
+  bestätigt: kein Endpunkt, keine Eigenschaft für gehobene Hände.
+  <https://devforum.zoom.us/t/getting-meeting-participants-with-raised-hand/10718>
+- Noch am **24. März 2026** steht im Forum „Raise / Lower hand missing from
+  onReaction event" — es fehlt also selbst im Reaktions-Ereignis des SDK,
+  nicht nur in der API.
+- Die Liste der Meeting-Webhooks nennt Teilnehmer-Ereignisse wie
+  `meeting.participant_joined_waiting_room`, aber keines zu Reaktionen oder
+  gehobenen Händen.
+  <https://developers.zoom.us/docs/api/meetings/events/>
+
+### Was daraus folgt
+
+**Die Anzeige muss im Meeting sein.** Gehobene Hände stehen ausschließlich
+in der Teilnehmerliste des Meeting SDK, und die gibt es nur von innen. Das
+ist keine Frage von Rechten, Scopes oder Veröffentlichung — Zoom gibt die
+Information außerhalb des Meetings schlicht nicht heraus.
+
+Damit sind Beitritt, Signatur und die Zugangsdaten der Versammlung nicht
+ein gewählter Weg unter mehreren, sondern der einzige. Wer diese Frage in
+einem Jahr erneut stellt, findet hier die Antwort samt Datum.
+
+---
+
 ## Was daraus für CueLight folgt
 
 CueLight ruft heute `ZoomMtg.join({ signature, meetingNumber, passWord, userName, obfToken })` auf. Der Kommentar im Quelltext (`public/index.html`, um Zeile 3204) beschreibt die Lage bereits zutreffend: „Läuft es im eigenen Konto, genügt die Signatur allein." Diese Recherche bestätigt das aus Zooms eigenen Quellen.
@@ -272,6 +331,11 @@ Damit hier keine Vermutung als Befund durchgeht — Folgendes ließ sich in den 
 - Eine inhaltliche Beschreibung von `obfToken` und `childToken` in der Parameterreferenz selbst (dort steht nur „Optional. obfToken." bzw. „Optional. childToken.").
 - Was genau mit nicht migrierten Apps nach dem 27. Juni 2026 geschieht (die Migrationsseite nennt das Datum, aber keinen Durchsetzungsmechanismus).
 - Ob der Warteraum allein ein zusätzliches Token (`zak`, `tk` oder OBF) erfordert.
+- Eine vollständige, von Zoom als vollständig bezeichnete Liste aller
+  Meeting-Webhooks. Geprüft wurde die Ereignisseite und das Forum; dass dort
+  nichts zu gehobenen Händen steht, ist zusammen mit dem unbeantworteten
+  Feature Request ein starkes Indiz, aber keine Zusage von Zoom, dass es das
+  Ereignis nicht gibt.
 
 ---
 
