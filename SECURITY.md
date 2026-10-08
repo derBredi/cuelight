@@ -28,7 +28,17 @@ davorschalten. Eines von beidem genügt.
 - OAuth mit `state`-Parameter gegen CSRF; die Instanz bindet sich beim
   ersten Mal automatisch an das freigebende Zoom-Konto und weist andere
   Konten danach ab.
-- CORS abgeschaltet, `nosniff`, `frame-ancestors 'none'`, HSTS bei HTTPS.
+- CORS abgeschaltet, `nosniff`, `X-Frame-Options: DENY`, HSTS bei HTTPS.
+  (`frame-ancestors 'none'` steht zusätzlich in der CSP — die ist aber
+  standardmäßig aus, siehe unten. Gegen Einbetten schützt deshalb
+  `X-Frame-Options`, und das ist immer an.)
+- **Mikrofon, Kamera und Bildschirmfreigabe sind im Browser gesperrt**
+  (`Permissions-Policy: microphone=(), camera=(), display-capture=()`).
+  CueLight braucht nichts davon und fragt deshalb gar nicht erst.
+  Das SDK bekommt zusätzlich `isSupportAV: false`, `disableJoinAudio`
+  und `disableVoIP` — aber das sind Bitten an eine fremde Bibliothek,
+  die sich mit jeder Fassung ändern kann. Die Kopfzeile ist keine Bitte,
+  und sie hängt **nicht** am CSP-Schalter.
 - Eine Content-Security-Policy ist vorbereitet, aber standardmäßig **aus**:
   Sie kann das Zoom-SDK blockieren, und ein Schutz, der die Anzeige mitten
   in einer Veranstaltung lahmlegt, richtet mehr Schaden an, als er

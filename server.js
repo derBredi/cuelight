@@ -229,6 +229,31 @@ app.use((req, res, next) => {
   if (isSecure(req)) {
     res.setHeader('Strict-Transport-Security', 'max-age=15552000; includeSubDomains');
   }
+
+  // MIKROFON, KAMERA UND BILDSCHIRMFREIGABE SIND GESPERRT.
+  //
+  // Die leere Klammer heisst "fuer niemanden, auch nicht fuer uns
+  // selbst". Der Browser fragt dann gar nicht erst nach Erlaubnis, und
+  // ein Aufruf von getUserMedia scheitert sofort.
+  //
+  // WARUM, OBWOHL "isSupportAV: false" IM SDK STEHT: Im
+  // Geschwisterprojekt meldungen.app war am 04.10.2026 das Tablet in
+  // einer echten Zusammenkunft mit Ton eingewaehlt - genau diese Option
+  // war gesetzt. Sie hatte in SDK 6.2.0 gewirkt und in 6.5.0 nicht mehr.
+  //
+  // CueLight laeuft auf 6.2.0 und ist damit heute auf der sicheren
+  // Seite. Aber die Option ist eine Bitte an eine fremde Bibliothek, die
+  // sich vierteljaehrlich aendert. Diese Zeile ist keine Bitte: Sie
+  // wirkt im Browser, egal was das SDK vorhat, und sie wirkt auch in der
+  // naechsten Fassung.
+  //
+  // UND SIE STEHT VOR "if (ENABLE_CSP)", nicht darin: Der CSP-Schalter
+  // ist voreingestellt aus, damit eine fremde Einrichtung nicht an einer
+  // Regel scheitert. Dieser Riegel kann nichts lahmlegen - er verbietet
+  // nur, was CueLight nie braucht - und er wird gerade dann gebraucht,
+  // wenn niemand etwas eingestellt hat.
+  res.setHeader('Permissions-Policy', 'microphone=(), camera=(), display-capture=()');
+
   if (ENABLE_CSP) {
     // 'unsafe-inline'/'unsafe-eval' sind noetig: die App ist ein einzelnes
     // HTML mit Inline-Skript, und das Zoom-SDK laedt WebAssembly nach.

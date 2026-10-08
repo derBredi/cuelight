@@ -312,3 +312,58 @@ test('Gegenprobe: ohne "!imMeeting" meldet sich die Stale-Wache schon vor dem Be
     );
   } finally { a.schliesse(); }
 });
+
+// --- Kein Ton. Unter keinen Umstaenden. --------------------------------
+//
+// DER FALL, und er ist im Geschwisterprojekt wirklich passiert: Am
+// 04.10.2026 war dort das Tablet in einer echten Zusammenkunft mit Ton
+// eingewaehlt, obwohl "isSupportAV: false" gesetzt war. Die Option hatte
+// in SDK 6.2.0 gewirkt und in 6.5.0 nicht mehr - eine Fassung, eine
+// Bedeutung weniger, und niemand hat es angekuendigt.
+//
+// CueLight laeuft auf 6.2.0 und ist damit heute auf der sicheren Seite.
+// Dieser Test ist fuer den Tag, an dem jemand umsteigt: Dann faellt auf,
+// dass eine einzelne Option die ganze Zusage getragen hat.
+//
+// Drei Schalter statt einem, und sie sagen dasselbe auf drei Arten:
+// isSupportAV nimmt die Bedienelemente weg, disableJoinAudio den
+// Beitritt mit Ton, disableVoIP den Weg darueber. Dazu kommt die
+// Permissions-Policy in server.js, und die ist die einzige, die keine
+// Bitte an eine fremde Bibliothek ist.
+
+test('CueLight tritt ohne Ton bei, dreifach abgesichert', async (t) => {
+  const a = await lade();
+  t.after(() => a.schliesse());
+
+  // joinMeeting() ruft ZoomMtg.init() - die Attrappe schreibt jeden
+  // Aufruf samt Argumenten mit.
+  // ABGEWARTET, und das ist noetig: joinMeeting holt zuerst die Signatur
+  // vom Server, init() kommt erst danach. Ohne await stuende hier eine
+  // leere Liste und der Test waere gruen, weil er zu frueh hinsieht.
+  //
+  // Der Fangarm faengt, was nach init() noch kommt: Die Attrappe
+  // antwortet auf alles mit undefined, also laeuft der Beitritt nicht
+  // weiter. Das ist in Ordnung - geprueft wird, womit init gerufen
+  // wurde, nicht ob Zoom antwortet.
+  await a.w.joinMeeting({
+    meetingNumber: '81234567890',
+    password: '',
+    serverUrl: 'https://zoom.us/wc/join',
+    displayName: 'Anzeige',
+  }).catch(() => {});
+
+  const init = a.sdkRufe.find((r) => r.name === 'init');
+  assert.ok(init, 'ZoomMtg.init wurde gar nicht gerufen');
+
+  const opt = init.args[0];
+  assert.strictEqual(opt.isSupportAV, false, 'isSupportAV muss aus sein');
+  assert.strictEqual(
+    opt.disableJoinAudio, true,
+    'disableJoinAudio fehlt - dann haengt der Ton an isSupportAV allein, ' +
+    'und genau das hat im Geschwisterprojekt nicht gehalten'
+  );
+  assert.strictEqual(
+    opt.disableVoIP, true,
+    'disableVoIP fehlt - der Weg ueber VoIP bleibt offen'
+  );
+});

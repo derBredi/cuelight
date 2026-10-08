@@ -3286,7 +3286,29 @@
         // Meeting im Formular stehen bleibt statt sofort wieder beizutreten.
         leaveUrl: window.location.origin + window.location.pathname + '?setup=1',
         patchJsMedia: true,
-        isSupportAV: false, // CueLight braucht nie Kamera/Mikro, kein Berechtigungsdialog nötig
+
+        // KEIN TON. UNTER KEINEN UMSTÄNDEN — und zwar dreifach gesagt.
+        //
+        // isSupportAV nimmt die Bedienelemente weg, disableJoinAudio den
+        // Beitritt mit Ton, disableVoIP den Weg darüber. Drei Schalter
+        // für eine Zusage sieht nach zu viel aus. Es ist es nicht:
+        //
+        // Im Geschwisterprojekt meldungen.app war am 04.10.2026 das
+        // Tablet in einer echten Zusammenkunft mit Ton eingewählt,
+        // obwohl isSupportAV: false gesetzt war. Die Option hatte in SDK
+        // 6.2.0 gewirkt und in 6.5.0 nicht mehr — eine Fassung, eine
+        // Bedeutung weniger, und angekündigt war es nirgends.
+        //
+        // CueLight läuft auf 6.2.0 und war damit nie betroffen. Diese
+        // zwei Zeilen sind für den Tag, an dem jemand umsteigt.
+        //
+        // Und sie bleiben eine Bitte an eine fremde Bibliothek. Der
+        // Riegel, der keine ist, steht in server.js: die
+        // Permissions-Policy. Die wirkt im Browser, egal was das SDK
+        // vorhat.
+        isSupportAV: false,
+        disableJoinAudio: true,
+        disableVoIP: true,
         success: () => {
           // Fruehwarnung statt kryptischem Verbindungsabbruch: prueft, ob der
           // aktuelle Browser/das Geraet ueberhaupt alle SDK-Features
